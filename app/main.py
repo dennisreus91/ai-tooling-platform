@@ -7,6 +7,11 @@ app = Flask(__name__)
 def health():
     return jsonify({"status": "ok"})
 
+
+@app.route("/ping")
+def ping():
+    return jsonify({"message": "pong"})
+
 port = int(os.environ.get("PORT", 5000))
 
 if __name__ == "__main__":
