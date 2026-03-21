@@ -5,12 +5,13 @@ from unittest.mock import Mock, patch
 import pytest
 
 from gemini_service import (
+    build_final_report,
     download_file_to_temp,
     extract_report_data,
     optimize_report,
     upload_case_file,
 )
-from schemas import Constraints, ExtractedReport
+from schemas import Constraints, ExtractedReport, OptimizationResult
 
 
 @patch.dict(
@@ -374,3 +375,253 @@ def test_optimize_report_raises_when_required_measure_missing(mock_client_cls):
 
     with pytest.raises(RuntimeError, match="required_measures"):
         optimize_report(validated_report, constraints)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+        "GEMINI_METHOD_FILE_SEARCH_STORE": "stores/test-method-store",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_returns_final_report(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[
+            {
+                "name": "Dakisolatie",
+                "cost": 4000,
+                "score_gain": 20,
+                "rationale": "Verlaagt warmtevraag sterk.",
+            },
+            {
+                "name": "Zonnepanelen",
+                "cost": 3500,
+                "score_gain": 15,
+                "rationale": "Levert extra labelsprong op.",
+            },
+        ],
+        total_cost=7500,
+        score_increase=35,
+        expected_label="A",
+        resulting_score=255,
+        summary="Goedkoopste geldige combinatie richting label A.",
+    )
+    constraints = Constraints(
+        target_label="A",
+        required_measures=["Dakisolatie"],
+    )
+
+    mock_response_payload = {
+        "title": "Verduurzamingsadvies",
+        "summary": "Met deze combinatie beweegt de woning richting label A.",
+        "measures": [
+            {
+                "name": "Dakisolatie",
+                "cost": 4000,
+                "score_gain": 20,
+                "rationale": "Verlaagt warmtevraag sterk.",
+            },
+            {
+                "name": "Zonnepanelen",
+                "cost": 3500,
+                "score_gain": 15,
+                "rationale": "Levert extra labelsprong op.",
+            },
+        ],
+        "total_investment": 7500,
+        "expected_label": "A",
+        "rationale": "Dit scenario combineert verplichte en kostenefficiënte maatregelen.",
+    }
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(mock_response_payload)
+    )
+    mock_client_cls.return_value = mock_client
+
+    result = build_final_report(opt_result, constraints)
+
+    assert result.title == "Verduurzamingsadvies"
+    assert result.expected_label == "A"
+    assert result.total_investment == 7500
+    assert len(result.measures) == 2
+
+    mock_client.models.generate_content.assert_called_once()
+    call_kwargs = mock_client.models.generate_content.call_args.kwargs
+    assert call_kwargs["model"] == "gemini-report-model"
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_raises_on_empty_response(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[],
+        total_cost=0,
+        score_increase=0,
+        expected_label="B",
+        resulting_score=190,
+        summary="Geen maatregelen nodig.",
+    )
+    constraints = Constraints(target_label="B", required_measures=[])
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(text="")
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="empty response"):
+        build_final_report(opt_result, constraints)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_raises_on_invalid_json(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[],
+        total_cost=0,
+        score_increase=0,
+        expected_label="B",
+        resulting_score=190,
+        summary="Geen maatregelen nodig.",
+    )
+    constraints = Constraints(target_label="B", required_measures=[])
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(text="not-json")
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="valid JSON"):
+        build_final_report(opt_result, constraints)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_raises_on_invalid_schema(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[],
+        total_cost=0,
+        score_increase=0,
+        expected_label="B",
+        resulting_score=190,
+        summary="Geen maatregelen nodig.",
+    )
+    constraints = Constraints(target_label="B", required_measures=[])
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(
+            {
+                "title": "",
+                "summary": "",
+                "measures": [],
+                "total_investment": -1,
+                "expected_label": "",
+                "rationale": "",
+            }
+        )
+    )
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="invalid FinalReport"):
+        build_final_report(opt_result, constraints)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_raises_on_mismatched_expected_label(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[],
+        total_cost=5000,
+        score_increase=20,
+        expected_label="A",
+        resulting_score=210,
+        summary="Scenario richting A.",
+    )
+    constraints = Constraints(target_label="A", required_measures=[])
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(
+            {
+                "title": "Verduurzamingsadvies",
+                "summary": "Samenvatting",
+                "measures": [],
+                "total_investment": 5000,
+                "expected_label": "B",
+                "rationale": "Onderbouwing",
+            }
+        )
+    )
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="expected_label"):
+        build_final_report(opt_result, constraints)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_raises_on_mismatched_total_investment(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[],
+        total_cost=5000,
+        score_increase=20,
+        expected_label="A",
+        resulting_score=210,
+        summary="Scenario richting A.",
+    )
+    constraints = Constraints(target_label="A", required_measures=[])
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(
+            {
+                "title": "Verduurzamingsadvies",
+                "summary": "Samenvatting",
+                "measures": [],
+                "total_investment": 6500,
+                "expected_label": "A",
+                "rationale": "Onderbouwing",
+            }
+        )
+    )
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="total_investment"):
+        build_final_report(opt_result, constraints)
