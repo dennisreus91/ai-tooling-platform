@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: energy-label-tool
+    name: ai-tooling-platform
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
@@ -12,4 +12,4 @@ services:
       - key: FLASK_ENV
         value: production
       - key: APP_NAME
-        value: energy-label-tool
+        value: ai-tooling-platform
