@@ -9,8 +9,8 @@ import requests
 from google import genai
 from google.genai import types
 
-from prompts import EXTRACT_REPORT_PROMPT
-from schemas import ExtractedReport
+from prompts import EXTRACT_REPORT_PROMPT, OPTIMIZE_REPORT_PROMPT
+from schemas import Constraints, ExtractedReport, OptimizationResult
 
 
 DEFAULT_TIMEOUT_SECONDS = 60
@@ -30,6 +30,10 @@ def _get_gemini_client() -> genai.Client:
 
 def _get_extract_model() -> str:
     return os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+
+def _get_optimize_model() -> str:
+    return os.getenv("GEMINI_OPTIMIZATION_MODEL", _get_extract_model())
 
 
 def _get_methodology_store_name() -> str | None:
@@ -72,23 +76,33 @@ def upload_case_file(local_path: str) -> Any:
     return client.files.upload(file=local_path)
 
 
-def _build_generate_config() -> types.GenerateContentConfig:
+def _build_file_search_tools() -> list[types.Tool] | None:
     store_name = _get_methodology_store_name()
+    if not store_name:
+        return None
 
-    tools: list[types.Tool] = []
-    if store_name:
-        tools.append(
-            types.Tool(
-                file_search=types.FileSearch(
-                    file_search_store_names=[store_name],
-                )
+    return [
+        types.Tool(
+            file_search=types.FileSearch(
+                file_search_store_names=[store_name],
             )
         )
+    ]
 
+
+def _build_extract_config() -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=ExtractedReport,
-        tools=tools or None,
+        tools=_build_file_search_tools(),
+    )
+
+
+def _build_optimize_config() -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=OptimizationResult,
+        tools=_build_file_search_tools(),
     )
 
 
@@ -104,7 +118,7 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
     response = client.models.generate_content(
         model=model,
         contents=[uploaded_file, EXTRACT_REPORT_PROMPT],
-        config=_build_generate_config(),
+        config=_build_extract_config(),
     )
 
     raw_text = getattr(response, "text", None)
@@ -120,3 +134,57 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
         return ExtractedReport.model_validate(payload)
     except Exception as exc:
         raise RuntimeError("Gemini extraction returned invalid ExtractedReport data.") from exc
+
+
+def optimize_report(
+    validated_report: ExtractedReport,
+    constraints: Constraints,
+) -> OptimizationResult:
+    """
+    Optimize a validated extracted report into a structured scenario result.
+    """
+    client = _get_gemini_client()
+    model = _get_optimize_model()
+
+    optimization_input = {
+        "constraints": constraints.model_dump(),
+        "validated_report": validated_report.model_dump(),
+    }
+
+    response = client.models.generate_content(
+        model=model,
+        contents=[
+            OPTIMIZE_REPORT_PROMPT,
+            json.dumps(optimization_input, ensure_ascii=False, indent=2),
+        ],
+        config=_build_optimize_config(),
+    )
+
+    raw_text = getattr(response, "text", None)
+    if not raw_text:
+        raise RuntimeError("Gemini optimization returned an empty response.")
+
+    try:
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Gemini optimization did not return valid JSON.") from exc
+
+    try:
+        result = OptimizationResult.model_validate(payload)
+    except Exception as exc:
+        raise RuntimeError("Gemini optimization returned invalid OptimizationResult data.") from exc
+
+    selected_names = {m.name.strip().lower() for m in result.selected_measures}
+    missing_required = [
+        measure
+        for measure in constraints.required_measures
+        if measure.strip().lower() not in selected_names
+    ]
+
+    if missing_required:
+        raise RuntimeError(
+            "Gemini optimization did not include all required_measures: "
+            + ", ".join(missing_required)
+        )
+
+    return result
