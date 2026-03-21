@@ -4,7 +4,7 @@ from app import create_app
 def test_create_app():
     app = create_app()
     assert app is not None
-    assert app.config["APP_NAME"] == "energy-label-tool"
+    assert app.config["APP_NAME"] == "ai-tooling-platform"
 
 
 def test_root_endpoint():
@@ -15,9 +15,9 @@ def test_root_endpoint():
     assert response.status_code == 200
 
     payload = response.get_json()
-    assert payload["name"] == "energy-label-tool"
+    assert payload["name"] == "ai-tooling-platform"
     assert payload["status"] == "running"
-    assert "message" in payload
+    assert payload["message"] == "AI tooling platform API is online."
 
 
 def test_health_endpoint():
