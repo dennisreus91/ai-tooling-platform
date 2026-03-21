@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from flask import Flask, jsonify, request
+from flask import Flask, request
 from pydantic import ValidationError
 
 from schemas import RunPocFlowRequest
@@ -14,7 +14,7 @@ def create_app() -> Flask:
     """
     app = Flask(__name__)
 
-    app.config["APP_NAME"] = os.getenv("APP_NAME", "energy-label-tool")
+    app.config["APP_NAME"] = os.getenv("APP_NAME", "ai-tooling-platform")
     app.config["ENVIRONMENT"] = os.getenv("FLASK_ENV", "production")
 
     @app.get("/")
@@ -22,7 +22,7 @@ def create_app() -> Flask:
         return {
             "name": app.config["APP_NAME"],
             "status": "running",
-            "message": "Energy label tool API is online.",
+            "message": "AI tooling platform API is online.",
         }, 200
 
     @app.get("/health")
@@ -68,7 +68,7 @@ def create_app() -> Flask:
             "message": "POC intake received successfully.",
             "data": {
                 "user_id": parsed.user_id,
-                "file_url": parsed.file_url,
+                "file_url": str(parsed.file_url),
                 "constraints": {
                     "target_label": constraints.target_label,
                     "required_measures": constraints.required_measures,
