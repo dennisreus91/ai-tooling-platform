@@ -56,3 +56,31 @@ Verboden:
 - geen alternatieve sleutelvelden
 - geen aannames buiten de input en methodiekcontext
 """
+
+BUILD_FINAL_REPORT_PROMPT = """
+Je maakt een klantgericht verduurzamingsrapport op basis van een bestaande optimization_result.
+
+Je krijgt als input:
+1. constraints
+2. optimization_result
+
+Doel:
+- maak een helder, leesbaar en beknopt verduurzamingsrapport
+- gebruik uitsluitend informatie uit optimization_result en constraints
+- voeg geen nieuwe aannames, maatregelen, kosten of labels toe
+- geef alleen JSON terug volgens het FinalReport-schema
+
+Verplichte inhoud:
+- title: duidelijke rapporttitel
+- summary: korte samenvatting van de uitgangssituatie en gekozen richting
+- measures: neem de gekozen maatregelen uit optimization_result over
+- total_investment: moet exact overeenkomen met optimization_result.total_cost
+- expected_label: moet exact overeenkomen met optimization_result.expected_label
+- rationale: korte onderbouwing waarom dit scenario passend is
+
+Verboden:
+- geen markdown
+- geen vrije tekst buiten JSON
+- geen nieuwe maatregelen toevoegen
+- geen andere total_investment of expected_label gebruiken dan in optimization_result
+"""
