@@ -43,22 +43,15 @@ def test_measure_parses_valid_payload():
     assert measure.notes == "Geschikt bij voldoende spouwbreedte."
 
 
-def test_measure_rejects_negative_cost():
-    with pytest.raises(ValidationError):
-        Measure(
-            name="Warmtepomp",
-            cost=-1,
-            score_gain=40,
-        )
+def test_measure_allows_negative_values_for_later_validation():
+    measure = Measure(
+        name="Warmtepomp",
+        cost=-1,
+        score_gain=0,
+    )
 
-
-def test_measure_rejects_zero_score_gain():
-    with pytest.raises(ValidationError):
-        Measure(
-            name="Warmtepomp",
-            cost=8000,
-            score_gain=0,
-        )
+    assert measure.cost == -1
+    assert measure.score_gain == 0
 
 
 def test_extracted_report_parses_valid_payload():
