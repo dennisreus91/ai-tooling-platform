@@ -1,6 +1,8 @@
 from typing import List
 
-from schemas import Constraints
+from pydantic import ValidationError
+
+from schemas import Constraints, ExtractedReport, Measure
 
 
 _ALLOWED_TARGET_LABELS = {
@@ -17,14 +19,14 @@ def _normalize_target_label(target_label: str) -> str:
     value = target_label.strip().lower()
 
     if value not in _ALLOWED_TARGET_LABELS:
-        raise ValueError(
-            "target_label must be one of: next_step, A, B, C."
-        )
+        raise ValueError("target_label must be one of: next_step, A, B, C.")
 
     return _ALLOWED_TARGET_LABELS[value]
 
 
-def _normalize_required_measures(required_measures: str | list[str] | None) -> List[str]:
+def _normalize_required_measures(
+    required_measures: str | list[str] | None,
+) -> List[str]:
     if required_measures is None:
         return []
 
@@ -66,4 +68,62 @@ def normalize_constraints(
     return Constraints(
         target_label=normalized_target_label,
         required_measures=normalized_required_measures,
+    )
+
+
+def validate_extract(data: dict | ExtractedReport) -> ExtractedReport:
+    """
+    Validate and clean extracted report data.
+
+    Rules:
+    - current_label must be present and non-empty
+    - current_score must be >= 0
+    - invalid measures are removed
+    - measures with negative cost are removed
+    - measures with score_gain <= 0 are removed
+    - if no valid measures remain, return a valid report with notes
+    """
+
+    try:
+        report = (
+            data
+            if isinstance(data, ExtractedReport)
+            else ExtractedReport.model_validate(data)
+        )
+    except ValidationError as exc:
+        raise ValueError(f"Invalid extracted report data: {exc}") from exc
+
+    valid_measures: List[Measure] = []
+    notes = list(report.notes)
+
+    for raw_measure in report.measures:
+        try:
+            measure = (
+                raw_measure
+                if isinstance(raw_measure, Measure)
+                else Measure.model_validate(raw_measure)
+            )
+        except ValidationError:
+            notes.append("One extracted measure was discarded because it was invalid.")
+            continue
+
+        if measure.cost < 0:
+            notes.append(
+                f"Measure '{measure.name}' was discarded because cost was negative."
+            )
+            continue
+
+        if measure.score_gain <= 0:
+            notes.append(
+                f"Measure '{measure.name}' was discarded because score_gain was not positive."
+            )
+            continue
+
+        valid_measures.append(measure)
+
+    return ExtractedReport(
+        current_label=report.current_label,
+        current_score=report.current_score,
+        measures=valid_measures,
+        notes=notes,
     )
