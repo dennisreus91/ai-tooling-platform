@@ -9,8 +9,17 @@ import requests
 from google import genai
 from google.genai import types
 
-from prompts import EXTRACT_REPORT_PROMPT, OPTIMIZE_REPORT_PROMPT
-from schemas import Constraints, ExtractedReport, OptimizationResult
+from prompts import (
+    BUILD_FINAL_REPORT_PROMPT,
+    EXTRACT_REPORT_PROMPT,
+    OPTIMIZE_REPORT_PROMPT,
+)
+from schemas import (
+    Constraints,
+    ExtractedReport,
+    FinalReport,
+    OptimizationResult,
+)
 
 
 DEFAULT_TIMEOUT_SECONDS = 60
@@ -34,6 +43,10 @@ def _get_extract_model() -> str:
 
 def _get_optimize_model() -> str:
     return os.getenv("GEMINI_OPTIMIZATION_MODEL", _get_extract_model())
+
+
+def _get_report_model() -> str:
+    return os.getenv("GEMINI_REPORT_MODEL", _get_optimize_model())
 
 
 def _get_methodology_store_name() -> str | None:
@@ -102,6 +115,14 @@ def _build_optimize_config() -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=OptimizationResult,
+        tools=_build_file_search_tools(),
+    )
+
+
+def _build_final_report_config() -> types.GenerateContentConfig:
+    return types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=FinalReport,
         tools=_build_file_search_tools(),
     )
 
@@ -185,6 +206,57 @@ def optimize_report(
         raise RuntimeError(
             "Gemini optimization did not include all required_measures: "
             + ", ".join(missing_required)
+        )
+
+    return result
+
+
+def build_final_report(
+    opt_result: OptimizationResult,
+    constraints: Constraints,
+) -> FinalReport:
+    """
+    Build a structured final report from the optimization result.
+    """
+    client = _get_gemini_client()
+    model = _get_report_model()
+
+    report_input = {
+        "constraints": constraints.model_dump(),
+        "optimization_result": opt_result.model_dump(),
+    }
+
+    response = client.models.generate_content(
+        model=model,
+        contents=[
+            BUILD_FINAL_REPORT_PROMPT,
+            json.dumps(report_input, ensure_ascii=False, indent=2),
+        ],
+        config=_build_final_report_config(),
+    )
+
+    raw_text = getattr(response, "text", None)
+    if not raw_text:
+        raise RuntimeError("Gemini final report generation returned an empty response.")
+
+    try:
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Gemini final report generation did not return valid JSON.") from exc
+
+    try:
+        result = FinalReport.model_validate(payload)
+    except Exception as exc:
+        raise RuntimeError("Gemini final report generation returned invalid FinalReport data.") from exc
+
+    if result.expected_label.strip() != opt_result.expected_label.strip():
+        raise RuntimeError(
+            "Gemini final report generation returned an expected_label that does not match the optimization result."
+        )
+
+    if abs(result.total_investment - opt_result.total_cost) > 1e-6:
+        raise RuntimeError(
+            "Gemini final report generation returned a total_investment that does not match the optimization result."
         )
 
     return result
