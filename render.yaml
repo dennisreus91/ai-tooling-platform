@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: energy-label-tool
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FLASK_ENV
+        value: production
+      - key: APP_NAME
+        value: energy-label-tool
