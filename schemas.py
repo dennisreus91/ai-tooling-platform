@@ -1,4 +1,4 @@
-from typing import List, Literal, Union
+from typing import Any, List, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
@@ -38,8 +38,8 @@ class Measure(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1)
-    cost: float = Field(..., ge=0)
-    score_gain: float = Field(..., gt=0)
+    cost: float
+    score_gain: float
     notes: str | None = None
 
     @field_validator("name")
