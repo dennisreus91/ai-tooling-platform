@@ -4,8 +4,15 @@ from typing import Any
 from flask import Flask, request
 from pydantic import ValidationError
 
+from gemini_service import (
+    build_final_report,
+    download_file_to_temp,
+    extract_report_data,
+    optimize_report,
+    upload_case_file,
+)
 from schemas import RunPocFlowRequest
-from validators import normalize_constraints
+from validators import normalize_constraints, validate_extract
 
 
 def create_app() -> Flask:
@@ -63,16 +70,38 @@ def create_app() -> Flask:
                 }
             }, 400
 
+        try:
+            local_path = download_file_to_temp(str(parsed.file_url))
+            uploaded_file = upload_case_file(local_path)
+            extracted_report = extract_report_data(uploaded_file)
+            validated_report = validate_extract(extracted_report)
+            optimization_result = optimize_report(validated_report, constraints)
+            final_report = build_final_report(optimization_result, constraints)
+        except RuntimeError as exc:
+            return {
+                "error": {
+                    "code": "processing_error",
+                    "message": str(exc),
+                }
+            }, 500
+        except Exception as exc:
+            return {
+                "error": {
+                    "code": "unexpected_error",
+                    "message": f"Unexpected error during POC flow: {exc}",
+                }
+            }, 500
+
         return {
-            "status": "accepted",
-            "message": "POC intake received successfully.",
+            "status": "completed",
+            "message": "POC flow completed successfully.",
             "data": {
                 "user_id": parsed.user_id,
                 "file_url": str(parsed.file_url),
-                "constraints": {
-                    "target_label": constraints.target_label,
-                    "required_measures": constraints.required_measures,
-                },
+                "constraints": constraints.model_dump(),
+                "validated_report": validated_report.model_dump(),
+                "optimization_result": optimization_result.model_dump(),
+                "final_report": final_report.model_dump(),
             },
         }, 200
 
