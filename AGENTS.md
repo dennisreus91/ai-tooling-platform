@@ -297,7 +297,7 @@ Tenzij expliciet gevraagd:
 - geen toevoeging van databases, queues of background workers
 - geen wijziging van businessregels buiten de huidige taak
 
-## Belangrijkste ontwikkelprincipe
+## Belangrijkste ontwikkelprincipes
 Deze repo bouwt een normgestuurde energielabel-tool waarin:
 - methodiek leidend is voor de berekeningslogica
 - casusdata leidend is voor de woninginput
