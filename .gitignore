@@ -1,0 +1,19 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# RAG documenten (NIET committen)
+rag_docs/*.pdf
+rag_docs/*.docx
+rag_docs/*.txt
+
+# Logs / temp
+*.log
+*.tmp
+*.zip
+
+# OS
+.DS_Store
