@@ -1,7 +1,8 @@
 import os
+from pathlib import Path
 from typing import Any
 
-from flask import Flask, request
+from flask import Flask, abort, request, send_file
 from pydantic import ValidationError
 
 from gemini_service import (
@@ -23,6 +24,11 @@ def create_app() -> Flask:
 
     app.config["APP_NAME"] = os.getenv("APP_NAME", "ai-tooling-platform")
     app.config["ENVIRONMENT"] = os.getenv("FLASK_ENV", "production")
+    app.config["ALLOW_TEST_FILE_ENDPOINT"] = (
+        os.getenv("ALLOW_TEST_FILE_ENDPOINT", "").lower() in {"1", "true", "yes"}
+    )
+
+    fixtures_dir = (Path(__file__).resolve().parent / "tests" / "fixtures").resolve()
 
     @app.get("/")
     def root() -> tuple[dict[str, Any], int]:
@@ -35,6 +41,28 @@ def create_app() -> Flask:
     @app.get("/health")
     def health() -> tuple[dict[str, str], int]:
         return {"status": "ok"}, 200
+
+    @app.get("/test-fixtures/<path:filename>")
+    def test_fixture_file(filename: str):
+        """
+        Serve a local fixture file for live tests only.
+
+        Disabled by default. Enable with:
+        ALLOW_TEST_FILE_ENDPOINT=true
+        """
+        if not app.config["ALLOW_TEST_FILE_ENDPOINT"]:
+            abort(404)
+
+        requested_path = (fixtures_dir / filename).resolve()
+
+        # Prevent path traversal
+        if fixtures_dir not in requested_path.parents and requested_path != fixtures_dir:
+            abort(404)
+
+        if not requested_path.exists() or not requested_path.is_file():
+            abort(404)
+
+        return send_file(requested_path)
 
     @app.post("/run-poc-flow")
     def run_poc_flow() -> tuple[dict[str, Any], int]:
