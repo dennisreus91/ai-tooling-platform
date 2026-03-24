@@ -106,7 +106,7 @@ def _build_file_search_tools() -> list[types.Tool] | None:
 def _build_extract_config() -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         response_mime_type="application/json",
-        response_schema=ExtractedReport,
+        response_json_schema=ExtractedReport.model_json_schema(),
         tools=_build_file_search_tools(),
     )
 
@@ -114,7 +114,7 @@ def _build_extract_config() -> types.GenerateContentConfig:
 def _build_optimize_config() -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         response_mime_type="application/json",
-        response_schema=OptimizationResult,
+        response_json_schema=OptimizationResult.model_json_schema(),
         tools=_build_file_search_tools(),
     )
 
@@ -122,7 +122,7 @@ def _build_optimize_config() -> types.GenerateContentConfig:
 def _build_final_report_config() -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         response_mime_type="application/json",
-        response_schema=FinalReport,
+        response_json_schema=FinalReport.model_json_schema(),
         tools=_build_file_search_tools(),
     )
 

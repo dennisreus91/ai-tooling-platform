@@ -101,6 +101,9 @@ def test_extract_report_data_returns_extracted_report(mock_client_cls):
     call_kwargs = mock_client.models.generate_content.call_args.kwargs
     assert call_kwargs["model"] == "gemini-test-model"
     assert uploaded_file in call_kwargs["contents"]
+    config = call_kwargs["config"]
+    assert config.response_json_schema is not None
+    assert config.response_schema is None
 
 
 @patch.dict(
