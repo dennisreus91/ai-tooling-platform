@@ -195,3 +195,6 @@ Deze tool:
 - optimaliseert maatregelen
 - genereert een professioneel rapport
 → volledig geautomatiseerd via AI + validatie
+
+## POC/MVP uitwerking
+Zie `docs/poc_mvp_aanpassingen.md` voor de gevraagde flow-aanpassingen en teststrategie.

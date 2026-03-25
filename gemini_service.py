@@ -158,23 +158,23 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
 
 
 def optimize_report(
-    validated_report: ExtractedReport,
+    uploaded_file: Any,
     constraints: Constraints,
 ) -> OptimizationResult:
     """
-    Optimize a validated extracted report into a structured scenario result.
+    Optimize a case file directly into a structured scenario result.
     """
     client = _get_gemini_client()
     model = _get_optimize_model()
 
     optimization_input = {
         "constraints": constraints.model_dump(),
-        "validated_report": validated_report.model_dump(),
     }
 
     response = client.models.generate_content(
         model=model,
         contents=[
+            uploaded_file,
             OPTIMIZE_REPORT_PROMPT,
             json.dumps(optimization_input, ensure_ascii=False, indent=2),
         ],
@@ -204,7 +204,7 @@ def optimize_report(
 
     if missing_required:
         raise RuntimeError(
-            "Gemini optimization did not include all required_measures: "
+            "insufficient_measures: Gemini optimization did not include all required_measures: "
             + ", ".join(missing_required)
         )
 
@@ -257,6 +257,27 @@ def build_final_report(
     if abs(result.total_investment - opt_result.total_cost) > 1e-6:
         raise RuntimeError(
             "Gemini final report generation returned a total_investment that does not match the optimization result."
+        )
+
+    if abs(result.expected_ep2_kwh_m2 - opt_result.expected_ep2_kwh_m2) > 1e-6:
+        raise RuntimeError(
+            "Gemini final report generation returned an expected_ep2_kwh_m2 that does not match the optimization result."
+        )
+
+    if abs(result.monthly_savings_eur - opt_result.monthly_savings_eur) > 1e-6:
+        raise RuntimeError(
+            "Gemini final report generation returned a monthly_savings_eur that does not match the optimization result."
+        )
+
+    if (
+        abs(
+            result.expected_property_value_gain_eur
+            - opt_result.expected_property_value_gain_eur
+        )
+        > 1e-6
+    ):
+        raise RuntimeError(
+            "Gemini final report generation returned an expected_property_value_gain_eur that does not match the optimization result."
         )
 
     return result

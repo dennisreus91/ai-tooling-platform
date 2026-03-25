@@ -80,21 +80,22 @@ def test_live_end_to_end_vabi_report_to_final_report(monkeypatch):
         data = response.get_json()
         assert data["status"] == "completed"
 
-        validated_report = data["data"]["validated_report"]
         optimization_result = data["data"]["optimization_result"]
         final_report = data["data"]["final_report"]
 
-        assert validated_report["current_label"].strip() != ""
-        assert validated_report["current_score"] >= 0
-        assert isinstance(validated_report["measures"], list)
-
         assert optimization_result["expected_label"].strip() != ""
         assert optimization_result["total_cost"] >= 0
+        assert optimization_result["expected_ep2_kwh_m2"] >= 0
+        assert optimization_result["monthly_savings_eur"] >= 0
+        assert optimization_result["expected_property_value_gain_eur"] >= 0
         assert isinstance(optimization_result["selected_measures"], list)
 
         assert final_report["title"].strip() != ""
         assert final_report["summary"].strip() != ""
         assert final_report["expected_label"].strip() != ""
         assert final_report["total_investment"] >= 0
+        assert final_report["expected_ep2_kwh_m2"] == optimization_result["expected_ep2_kwh_m2"]
+        assert final_report["monthly_savings_eur"] == optimization_result["monthly_savings_eur"]
+        assert final_report["expected_property_value_gain_eur"] == optimization_result["expected_property_value_gain_eur"]
         assert isinstance(final_report["measures"], list)
         assert final_report["rationale"].strip() != ""
