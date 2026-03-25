@@ -38,5 +38,6 @@ def test_live_extract_report_data_smoke():
     assert isinstance(result.current_label, str)
     assert result.current_label.strip() != ""
     assert result.current_score >= 0
+    assert result.current_ep2_kwh_m2 >= 0
     assert isinstance(result.measures, list)
     assert isinstance(result.notes, list)

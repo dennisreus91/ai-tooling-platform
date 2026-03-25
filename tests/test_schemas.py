@@ -58,6 +58,7 @@ def test_extracted_report_parses_valid_payload():
     report = ExtractedReport(
         current_label="D",
         current_score=120,
+        current_ep2_kwh_m2=220,
         measures=[
             {
                 "name": "spouwmuurisolatie",
@@ -76,21 +77,20 @@ def test_extracted_report_parses_valid_payload():
 
     assert report.current_label == "D"
     assert report.current_score == 120
+    assert report.current_ep2_kwh_m2 == 220
     assert len(report.measures) == 2
     assert report.measures[0].name == "spouwmuurisolatie"
     assert report.notes == ["Rapport deels gebaseerd op aangeleverde opname."]
 
 
-def test_extracted_report_allows_empty_measures():
-    report = ExtractedReport(
-        current_label="C",
-        current_score=180,
-        measures=[],
-        notes=[],
-    )
-
-    assert report.measures == []
-    assert report.notes == []
+def test_extracted_report_rejects_missing_ep2():
+    with pytest.raises(ValidationError):
+        ExtractedReport(
+            current_label="C",
+            current_score=180,
+            measures=[],
+            notes=[],
+        )
 
 
 def test_optimization_measure_parses_valid_payload():
@@ -125,6 +125,10 @@ def test_optimization_result_parses_valid_payload():
         score_increase=38,
         expected_label="A",
         resulting_score=82,
+        expected_ep2_kwh_m2=110,
+        monthly_savings_eur=190,
+        expected_property_value_gain_eur=12000,
+        calculation_notes=["Conservatieve schatting."],
         summary="Goedkoopste combinatie richting label A.",
     )
 
@@ -133,16 +137,20 @@ def test_optimization_result_parses_valid_payload():
     assert result.score_increase == 38
     assert result.expected_label == "A"
     assert result.resulting_score == 82
+    assert result.expected_ep2_kwh_m2 == 110
 
 
-def test_optimization_result_rejects_negative_total_cost():
+def test_optimization_result_rejects_negative_monthly_savings():
     with pytest.raises(ValidationError):
         OptimizationResult(
             selected_measures=[],
-            total_cost=-10,
+            total_cost=0,
             score_increase=0,
             expected_label="B",
             resulting_score=150,
+            expected_ep2_kwh_m2=160,
+            monthly_savings_eur=-10,
+            expected_property_value_gain_eur=0,
         )
 
 
@@ -160,6 +168,9 @@ def test_final_report_parses_valid_payload():
         ],
         total_investment=5000,
         expected_label="A",
+        expected_ep2_kwh_m2=120,
+        monthly_savings_eur=95,
+        expected_property_value_gain_eur=8500,
         rationale="De combinatie is gekozen op basis van lage investering en voldoende scoreverbetering.",
     )
 
@@ -167,6 +178,7 @@ def test_final_report_parses_valid_payload():
     assert report.summary.startswith("Deze woning")
     assert report.total_investment == 5000
     assert report.expected_label == "A"
+    assert report.expected_ep2_kwh_m2 == 120
     assert len(report.measures) == 1
 
 
@@ -178,5 +190,8 @@ def test_final_report_rejects_empty_title():
             measures=[],
             total_investment=0,
             expected_label="B",
+            expected_ep2_kwh_m2=170,
+            monthly_savings_eur=0,
+            expected_property_value_gain_eur=0,
             rationale="Onderbouwing",
         )

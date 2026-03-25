@@ -78,10 +78,10 @@ def validate_extract(data: dict | ExtractedReport) -> ExtractedReport:
     Rules:
     - current_label must be present and non-empty
     - current_score must be >= 0
+    - current_ep2_kwh_m2 must be present and >= 0
     - invalid measures are removed
     - measures with negative cost are removed
     - measures with score_gain <= 0 are removed
-    - if no valid measures remain, return a valid report with notes
     """
 
     try:
@@ -91,6 +91,13 @@ def validate_extract(data: dict | ExtractedReport) -> ExtractedReport:
             else ExtractedReport.model_validate(data)
         )
     except ValidationError as exc:
+        has_ep2_error = any(
+            err.get("loc") == ("current_ep2_kwh_m2",) for err in exc.errors()
+        )
+        if has_ep2_error:
+            raise ValueError(
+                "missing_ep2_data: current_ep2_kwh_m2 ontbreekt of is ongeldig."
+            ) from exc
         raise ValueError(f"Invalid extracted report data: {exc}") from exc
 
     valid_measures: List[Measure] = []
@@ -124,6 +131,7 @@ def validate_extract(data: dict | ExtractedReport) -> ExtractedReport:
     return ExtractedReport(
         current_label=report.current_label,
         current_score=report.current_score,
+        current_ep2_kwh_m2=report.current_ep2_kwh_m2,
         measures=valid_measures,
         notes=notes,
     )

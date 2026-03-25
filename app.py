@@ -8,12 +8,26 @@ from pydantic import ValidationError
 from gemini_service import (
     build_final_report,
     download_file_to_temp,
-    extract_report_data,
     optimize_report,
     upload_case_file,
 )
 from schemas import RunPocFlowRequest
-from validators import normalize_constraints, validate_extract
+from validators import normalize_constraints
+
+
+_KNOWN_PROCESSING_CODES = (
+    "missing_ep2_data",
+    "insufficient_measures",
+    "methodology_conflict",
+    "invalid_llm_json",
+)
+
+
+def _extract_processing_code(message: str) -> str:
+    for code in _KNOWN_PROCESSING_CODES:
+        if message.startswith(f"{code}:"):
+            return code
+    return "processing_error"
 
 
 def create_app() -> Flask:
@@ -101,15 +115,22 @@ def create_app() -> Flask:
         try:
             local_path = download_file_to_temp(str(parsed.file_url))
             uploaded_file = upload_case_file(local_path)
-            extracted_report = extract_report_data(uploaded_file)
-            validated_report = validate_extract(extracted_report)
-            optimization_result = optimize_report(validated_report, constraints)
+            optimization_result = optimize_report(uploaded_file, constraints)
             final_report = build_final_report(optimization_result, constraints)
-        except RuntimeError as exc:
+        except ValueError as exc:
+            message = str(exc)
             return {
                 "error": {
-                    "code": "processing_error",
-                    "message": str(exc),
+                    "code": _extract_processing_code(message),
+                    "message": message,
+                }
+            }, 500
+        except RuntimeError as exc:
+            message = str(exc)
+            return {
+                "error": {
+                    "code": _extract_processing_code(message),
+                    "message": message,
                 }
             }, 500
         except Exception as exc:
@@ -127,7 +148,6 @@ def create_app() -> Flask:
                 "user_id": parsed.user_id,
                 "file_url": str(parsed.file_url),
                 "constraints": constraints.model_dump(),
-                "validated_report": validated_report.model_dump(),
                 "optimization_result": optimization_result.model_dump(),
                 "final_report": final_report.model_dump(),
             },

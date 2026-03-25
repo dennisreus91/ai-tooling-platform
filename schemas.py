@@ -1,4 +1,4 @@
-from typing import Any, List, Literal, Union
+from typing import List, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
@@ -60,6 +60,7 @@ class ExtractedReport(BaseModel):
 
     current_label: str = Field(..., min_length=1)
     current_score: float = Field(..., ge=0)
+    current_ep2_kwh_m2: float = Field(..., ge=0)
     measures: List[Measure] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
@@ -105,6 +106,10 @@ class OptimizationResult(BaseModel):
     score_increase: float = Field(..., ge=0)
     expected_label: str = Field(..., min_length=1)
     resulting_score: float = Field(..., ge=0)
+    expected_ep2_kwh_m2: float = Field(..., ge=0)
+    monthly_savings_eur: float = Field(..., ge=0)
+    expected_property_value_gain_eur: float = Field(..., ge=0)
+    calculation_notes: List[str] = Field(default_factory=list)
     summary: str | None = None
 
     @field_validator("expected_label")
@@ -128,6 +133,9 @@ class FinalReport(BaseModel):
     measures: List[OptimizationMeasure] = Field(default_factory=list)
     total_investment: float = Field(..., ge=0)
     expected_label: str = Field(..., min_length=1)
+    expected_ep2_kwh_m2: float = Field(..., ge=0)
+    monthly_savings_eur: float = Field(..., ge=0)
+    expected_property_value_gain_eur: float = Field(..., ge=0)
     rationale: str = Field(..., min_length=1)
 
     @field_validator("title", "summary", "expected_label", "rationale")
