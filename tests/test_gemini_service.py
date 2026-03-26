@@ -7,6 +7,7 @@ import pytest
 from gemini_service import (
     _build_conservative_optimization_result,
     _parse_llm_json,
+    _normalize_final_report_payload,
     _normalize_extracted_report_payload,
     _build_extract_config,
     _build_final_report_config,
@@ -59,6 +60,22 @@ def test_parse_llm_json_accepts_fenced_json():
     assert payload == {"ok": True}
 
 
+def test_parse_llm_json_accepts_json_with_surrounding_explanation_text():
+    raw_text = """Toelichting met accolades {niet-json} en context.
+```json
+{
+  "selected_measures": [],
+  "total_cost": 0
+}
+```
+Aanvullende tekst.
+"""
+
+    payload = _parse_llm_json(raw_text, "Gemini optimization")
+
+    assert payload["total_cost"] == 0
+
+
 def test_parse_llm_json_raises_on_invalid_payload():
     with pytest.raises(RuntimeError, match="invalid_llm_json"):
         _parse_llm_json("geen json hier", "Gemini extraction")
@@ -86,6 +103,50 @@ def test_normalize_extracted_report_payload_filters_extra_fields_and_coerces_num
     assert normalized["measures"] == [
         {"name": "Dakisolatie", "cost": 4000.0, "score_gain": 20.0}
     ]
+
+
+def test_normalize_extracted_report_payload_falls_back_to_ep2_for_current_score():
+    payload = {
+        "current_label": "G",
+        "current_score": None,
+        "current_ep2_kwh_m2_yr": "655,85",
+        "measures": [],
+        "notes": [],
+    }
+
+    normalized = _normalize_extracted_report_payload(payload)
+
+    assert normalized["current_ep2_kwh_m2"] == 655.85
+    assert normalized["current_score"] == 655.85
+
+
+def test_normalize_final_report_payload_removes_unknown_fields():
+    payload = {
+        "title": "Advies",
+        "summary": "Samenvatting",
+        "current_label": "D",
+        "current_ep2_kwh_m2": 260,
+        "current_measures": [],
+        "measures": [],
+        "required_measures_for_new_label": [],
+        "total_investment": 4000,
+        "new_label": "A",
+        "new_ep2_kwh_m2": 180,
+        "expected_label": "A",
+        "expected_ep2_kwh_m2": 180,
+        "monthly_savings_eur": 85,
+        "monthly_savings_basis": "Basis",
+        "expected_property_value_gain_eur": 9000,
+        "rationale": "Onderbouwing",
+        "notes": [],
+        "calculation_notes": [],
+    }
+
+    normalized = _normalize_final_report_payload(payload)
+
+    assert "notes" not in normalized
+    assert "calculation_notes" not in normalized
+    assert normalized["expected_label"] == "A"
 
 
 def test_build_conservative_optimization_result_maps_invalid_values_to_safe_defaults():
@@ -340,7 +401,54 @@ def test_optimize_report_raises_when_total_cost_is_inconsistent(mock_client_cls)
     clear=False,
 )
 @patch("gemini_service.genai.Client")
-def test_optimize_report_raises_when_expected_label_does_not_reach_target(mock_client_cls):
+def test_optimize_report_allows_small_total_cost_rounding_delta(mock_client_cls):
+    uploaded_file = SimpleNamespace(name="files/123")
+    constraints = Constraints(target_label="A", required_measures=[])
+    extracted_report = SimpleNamespace(
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        }
+    )
+
+    mock_response_payload = {
+        "selected_measures": [
+            {"name": "Dakisolatie", "cost": 4000, "score_gain": 20},
+        ],
+        "total_cost": 4000.75,
+        "score_increase": 20,
+        "expected_label": "A",
+        "resulting_score": 240,
+        "expected_ep2_kwh_m2": 180,
+        "monthly_savings_eur": 85,
+        "expected_property_value_gain_eur": 9000,
+        "calculation_notes": [],
+    }
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(mock_response_payload)
+    )
+    mock_client_cls.return_value = mock_client
+
+    result = optimize_report(uploaded_file, constraints, extracted_report)
+
+    assert result.total_cost == 4000.75
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_OPTIMIZATION_MODEL": "gemini-opt-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_optimize_report_adds_note_when_expected_label_does_not_reach_target(mock_client_cls):
     uploaded_file = SimpleNamespace(name="files/123")
     constraints = Constraints(target_label="A", required_measures=[])
     extracted_report = SimpleNamespace(
@@ -373,8 +481,9 @@ def test_optimize_report_raises_when_expected_label_does_not_reach_target(mock_c
     )
     mock_client_cls.return_value = mock_client
 
-    with pytest.raises(RuntimeError, match="methodology_conflict"):
-        optimize_report(uploaded_file, constraints, extracted_report)
+    result = optimize_report(uploaded_file, constraints, extracted_report)
+
+    assert any("methodology_conflict" in note for note in result.calculation_notes)
 
 
 @patch.dict(

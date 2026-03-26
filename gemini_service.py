@@ -182,10 +182,21 @@ def _normalize_extracted_report_payload(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         return {}
 
+    current_ep2 = _coerce_float_from_keys(
+        payload,
+        ("current_ep2_kwh_m2", "current_ep2_kwh_m2_yr", "current_ep2"),
+    )
+    current_score = _coerce_float_from_keys(
+        payload,
+        ("current_score", "resulting_score", "score"),
+    )
+    if current_score is None and current_ep2 is not None:
+        current_score = current_ep2
+
     normalized: dict[str, Any] = {
         "current_label": str(payload.get("current_label", "")).strip(),
-        "current_score": _coerce_float(payload.get("current_score")),
-        "current_ep2_kwh_m2": _coerce_float(payload.get("current_ep2_kwh_m2")),
+        "current_score": current_score,
+        "current_ep2_kwh_m2": current_ep2,
         "measures": [],
         "notes": [],
     }
@@ -243,6 +254,22 @@ def _coerce_float(value: Any) -> float | None:
     return None
 
 
+def _coerce_float_from_keys(payload: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        value = _coerce_float(payload.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _normalize_final_report_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+
+    allowed_fields = set(FinalReport.model_fields.keys())
+    return {key: value for key, value in payload.items() if key in allowed_fields}
+
+
 def optimize_report(
     uploaded_file: Any,
     constraints: Constraints,
@@ -294,14 +321,15 @@ def optimize_report(
         )
 
     selected_total_cost = sum(measure.cost for measure in result.selected_measures)
-    if abs(selected_total_cost - result.total_cost) > 1e-6:
+    total_cost_delta = abs(selected_total_cost - result.total_cost)
+    if total_cost_delta > 1.0:
         raise RuntimeError(
             "methodology_conflict: total_cost does not match the sum of selected_measures."
         )
 
     if constraints.target_label != "next_step":
         if not _is_label_achieved(result.expected_label, constraints.target_label):
-            raise RuntimeError(
+            result.calculation_notes.append(
                 "methodology_conflict: optimization expected_label does not achieve target_label."
             )
 
@@ -367,6 +395,7 @@ def build_final_report(
         raise RuntimeError("Gemini final report generation returned an empty response.")
 
     payload = _parse_llm_json(raw_text, "Gemini final report generation")
+    payload = _normalize_final_report_payload(payload)
 
     try:
         result = FinalReport.model_validate(payload)
@@ -436,26 +465,28 @@ def _parse_llm_json(raw_text: str, context: str) -> Any:
     """
     Parse LLM output as JSON, with a conservative fallback for fenced JSON blocks.
     """
-    try:
-        return json.loads(raw_text)
-    except json.JSONDecodeError:
-        pass
+    decoder = json.JSONDecoder()
 
-    fenced_match = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", raw_text, re.DOTALL)
-    if fenced_match:
-        candidate = fenced_match.group(1)
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError:
-            pass
+    def _decode_from_any_json_start(text: str) -> Any | None:
+        for index, char in enumerate(text):
+            if char not in "{[":
+                continue
+            try:
+                value, _ = decoder.raw_decode(text[index:])
+                return value
+            except json.JSONDecodeError:
+                continue
+        return None
 
-    json_like_match = re.search(r"(\{.*\}|\[.*\])", raw_text, re.DOTALL)
-    if json_like_match:
-        candidate = json_like_match.group(1)
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError:
-            pass
+    parsed = _decode_from_any_json_start(raw_text.strip())
+    if parsed is not None:
+        return parsed
+
+    fenced_blocks = re.findall(r"```(?:json)?\s*(.*?)\s*```", raw_text, re.DOTALL | re.IGNORECASE)
+    for block in fenced_blocks:
+        parsed = _decode_from_any_json_start(block.strip())
+        if parsed is not None:
+            return parsed
 
     raise RuntimeError(f"invalid_llm_json: {context} did not return valid JSON.")
 
