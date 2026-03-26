@@ -457,7 +457,7 @@ def _parse_llm_json(raw_text: str, context: str) -> Any:
         except json.JSONDecodeError:
             pass
 
-    raise RuntimeError(f"{context} did not return valid JSON.")
+    raise RuntimeError(f"invalid_llm_json: {context} did not return valid JSON.")
 
 
 def _build_conservative_optimization_result(

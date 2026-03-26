@@ -16,6 +16,44 @@ def test_run_poc_flow_rejects_missing_json_body():
     assert data["error"]["code"] == "invalid_json"
 
 
+def test_run_poc_flow_returns_validation_error_for_invalid_payload():
+    app = create_app()
+    client = app.test_client()
+
+    payload = {
+        "user_id": "user-123",
+        "target_label": "A",
+        "required_measures": [],
+        # file_url ontbreekt bewust
+    }
+
+    response = client.post("/run-poc-flow", json=payload)
+    assert response.status_code == 400
+
+    data = response.get_json()
+    assert data["error"]["code"] == "validation_error"
+    assert isinstance(data["error"]["details"], list)
+
+
+def test_run_poc_flow_returns_constraint_error_for_invalid_target_label():
+    app = create_app()
+    client = app.test_client()
+
+    payload = {
+        "user_id": "user-123",
+        "target_label": "D",
+        "required_measures": [],
+        "file_url": "https://example.com/report.pdf",
+    }
+
+    response = client.post("/run-poc-flow", json=payload)
+    assert response.status_code == 400
+
+    data = response.get_json()
+    assert data["error"]["code"] == "constraint_error"
+    assert "target_label must be one of" in data["error"]["message"]
+
+
 @patch("app.build_final_report")
 @patch("app.optimize_report")
 @patch("app.validate_extract")
@@ -137,6 +175,93 @@ def test_run_poc_flow_returns_unexpected_error_on_unknown_exception(
 
     data = response.get_json()
     assert data["error"]["code"] == "unexpected_error"
+
+
+@patch("app.download_file_to_temp")
+def test_run_poc_flow_maps_processing_error_code_from_value_error(
+    mock_download_file_to_temp,
+):
+    app = create_app()
+    client = app.test_client()
+
+    payload = {
+        "user_id": "user-123",
+        "target_label": "A",
+        "required_measures": [],
+        "file_url": "https://example.com/report.pdf",
+    }
+
+    mock_download_file_to_temp.side_effect = ValueError(
+        "missing_ep2_data: current_ep2_kwh_m2 ontbreekt of is ongeldig."
+    )
+
+    response = client.post("/run-poc-flow", json=payload)
+    assert response.status_code == 500
+
+    data = response.get_json()
+    assert data["error"]["code"] == "missing_ep2_data"
+
+
+@patch("app.download_file_to_temp")
+def test_run_poc_flow_maps_processing_error_code_from_runtime_error(
+    mock_download_file_to_temp,
+):
+    app = create_app()
+    client = app.test_client()
+
+    payload = {
+        "user_id": "user-123",
+        "target_label": "A",
+        "required_measures": [],
+        "file_url": "https://example.com/report.pdf",
+    }
+
+    mock_download_file_to_temp.side_effect = RuntimeError(
+        "methodology_conflict: total_cost does not match the sum of selected_measures."
+    )
+
+    response = client.post("/run-poc-flow", json=payload)
+    assert response.status_code == 500
+
+    data = response.get_json()
+    assert data["error"]["code"] == "methodology_conflict"
+
+
+@patch.dict("os.environ", {"ALLOW_TEST_FILE_ENDPOINT": "false"}, clear=False)
+def test_test_fixture_endpoint_is_disabled_by_default():
+    app = create_app()
+    client = app.test_client()
+
+    response = client.get("/test-fixtures/sample_report.pdf")
+    assert response.status_code == 404
+
+
+@patch.dict("os.environ", {"ALLOW_TEST_FILE_ENDPOINT": "true"}, clear=False)
+def test_test_fixture_endpoint_blocks_path_traversal():
+    app = create_app()
+    client = app.test_client()
+
+    response = client.get("/test-fixtures/../app.py")
+    assert response.status_code == 404
+
+
+@patch.dict("os.environ", {"ALLOW_TEST_FILE_ENDPOINT": "true"}, clear=False)
+def test_test_fixture_endpoint_returns_404_for_missing_file():
+    app = create_app()
+    client = app.test_client()
+
+    response = client.get("/test-fixtures/does-not-exist.pdf")
+    assert response.status_code == 404
+
+
+@patch.dict("os.environ", {"ALLOW_TEST_FILE_ENDPOINT": "true"}, clear=False)
+def test_test_fixture_endpoint_serves_existing_fixture_file():
+    app = create_app()
+    client = app.test_client()
+
+    response = client.get("/test-fixtures/sample_report.pdf")
+    assert response.status_code == 200
+    assert response.data
 
 
 def test_constraints_schema_still_supports_required_measures_list():

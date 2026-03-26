@@ -60,7 +60,7 @@ def test_parse_llm_json_accepts_fenced_json():
 
 
 def test_parse_llm_json_raises_on_invalid_payload():
-    with pytest.raises(RuntimeError, match="Gemini extraction did not return valid JSON"):
+    with pytest.raises(RuntimeError, match="invalid_llm_json"):
         _parse_llm_json("geen json hier", "Gemini extraction")
 
 
@@ -335,6 +335,52 @@ def test_optimize_report_raises_when_total_cost_is_inconsistent(mock_client_cls)
     "os.environ",
     {
         "GEMINI_API_KEY": "test-key",
+        "GEMINI_OPTIMIZATION_MODEL": "gemini-opt-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_optimize_report_raises_when_expected_label_does_not_reach_target(mock_client_cls):
+    uploaded_file = SimpleNamespace(name="files/123")
+    constraints = Constraints(target_label="A", required_measures=[])
+    extracted_report = SimpleNamespace(
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        }
+    )
+
+    mock_response_payload = {
+        "selected_measures": [
+            {"name": "Dakisolatie", "cost": 4000, "score_gain": 20},
+        ],
+        "total_cost": 4000,
+        "score_increase": 20,
+        "expected_label": "C",
+        "resulting_score": 240,
+        "expected_ep2_kwh_m2": 180,
+        "monthly_savings_eur": 85,
+        "expected_property_value_gain_eur": 9000,
+        "calculation_notes": [],
+    }
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(mock_response_payload)
+    )
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="methodology_conflict"):
+        optimize_report(uploaded_file, constraints, extracted_report)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
         "GEMINI_REPORT_MODEL": "gemini-report-model",
     },
     clear=False,
@@ -419,3 +465,138 @@ def test_build_final_report_returns_final_report(mock_client_cls):
 
     assert result.expected_ep2_kwh_m2 == 180
     assert result.monthly_savings_eur == 85
+
+
+def test_upload_case_file_raises_when_api_key_is_missing(tmp_path):
+    test_file = tmp_path / "report.pdf"
+    test_file.write_bytes(b"fake-pdf-content")
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(RuntimeError, match="Missing required environment variable: GEMINI_API_KEY"):
+            upload_case_file(str(test_file))
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_raises_on_expected_label_mismatch(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[{"name": "Dakisolatie", "cost": 4000, "score_gain": 20}],
+        total_cost=4000,
+        score_increase=20,
+        expected_label="A",
+        resulting_score=240,
+        expected_ep2_kwh_m2=180,
+        monthly_savings_eur=85,
+        expected_property_value_gain_eur=9000,
+        calculation_notes=[],
+    )
+    constraints = Constraints(target_label="A", required_measures=[])
+    extracted_report = SimpleNamespace(
+        current_label="D",
+        current_score=220,
+        current_ep2_kwh_m2=260,
+        measures=[],
+        notes=[],
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        },
+    )
+    payload = {
+        "title": "Verduurzamingsadvies",
+        "summary": "Samenvatting",
+        "current_label": "D",
+        "current_ep2_kwh_m2": 260,
+        "current_measures": [],
+        "measures": [{"name": "Dakisolatie", "cost": 4000, "score_gain": 20}],
+        "required_measures_for_new_label": [],
+        "total_investment": 4000,
+        "new_label": "A",
+        "new_ep2_kwh_m2": 180,
+        "expected_label": "B",
+        "expected_ep2_kwh_m2": 180,
+        "monthly_savings_eur": 85,
+        "monthly_savings_basis": "Basis",
+        "expected_property_value_gain_eur": 9000,
+        "rationale": "Onderbouwing",
+    }
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(text=json.dumps(payload))
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="expected_label"):
+        build_final_report(opt_result, extracted_report, constraints)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_REPORT_MODEL": "gemini-report-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_build_final_report_raises_on_total_investment_mismatch(mock_client_cls):
+    opt_result = OptimizationResult(
+        selected_measures=[{"name": "Dakisolatie", "cost": 4000, "score_gain": 20}],
+        total_cost=4000,
+        score_increase=20,
+        expected_label="A",
+        resulting_score=240,
+        expected_ep2_kwh_m2=180,
+        monthly_savings_eur=85,
+        expected_property_value_gain_eur=9000,
+        calculation_notes=[],
+    )
+    constraints = Constraints(target_label="A", required_measures=[])
+    extracted_report = SimpleNamespace(
+        current_label="D",
+        current_score=220,
+        current_ep2_kwh_m2=260,
+        measures=[],
+        notes=[],
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        },
+    )
+    payload = {
+        "title": "Verduurzamingsadvies",
+        "summary": "Samenvatting",
+        "current_label": "D",
+        "current_ep2_kwh_m2": 260,
+        "current_measures": [],
+        "measures": [{"name": "Dakisolatie", "cost": 4000, "score_gain": 20}],
+        "required_measures_for_new_label": [],
+        "total_investment": 4500,
+        "new_label": "A",
+        "new_ep2_kwh_m2": 180,
+        "expected_label": "A",
+        "expected_ep2_kwh_m2": 180,
+        "monthly_savings_eur": 85,
+        "monthly_savings_basis": "Basis",
+        "expected_property_value_gain_eur": 9000,
+        "rationale": "Onderbouwing",
+    }
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(text=json.dumps(payload))
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="total_investment"):
+        build_final_report(opt_result, extracted_report, constraints)
