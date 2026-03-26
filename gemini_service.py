@@ -11,10 +11,10 @@ from google import genai
 from google.genai import types
 
 from prompts import (
-    BUILD_FINAL_REPORT_USER_PROMPT,
-    EXTRACT_REPORT_USER_PROMPT,
-    OPTIMIZE_REPORT_USER_PROMPT,
     SYSTEM_INSTRUCTION_BASELINE,
+    build_extract_report_prompt,
+    build_final_report_prompt,
+    build_optimize_report_prompt,
 )
 from schemas import (
     Constraints,
@@ -161,7 +161,7 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
 
     response = client.models.generate_content(
         model=model,
-        contents=[uploaded_file, EXTRACT_REPORT_USER_PROMPT],
+        contents=[uploaded_file, build_extract_report_prompt()],
         config=_build_extract_config(),
     )
 
@@ -263,7 +263,7 @@ def optimize_report(
         model=model,
         contents=[
             uploaded_file,
-            OPTIMIZE_REPORT_USER_PROMPT,
+            build_optimize_report_prompt(),
             json.dumps(optimization_input, ensure_ascii=False, indent=2),
         ],
         config=_build_optimize_config(),
@@ -354,7 +354,7 @@ def build_final_report(
     response = client.models.generate_content(
         model=model,
         contents=[
-            BUILD_FINAL_REPORT_USER_PROMPT,
+            build_final_report_prompt(),
             json.dumps(report_input, ensure_ascii=False, indent=2),
         ],
         config=_build_final_report_config(),
