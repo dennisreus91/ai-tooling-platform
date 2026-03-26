@@ -103,11 +103,18 @@ Doel:
 Verplichte inhoud:
 - title: duidelijke rapporttitel
 - summary: korte samenvatting van de uitgangssituatie en gekozen richting
+- current_label: huidige energielabel uit extracted_report
+- current_ep2_kwh_m2: huidig verbruik (EP2) in kWh/m²·jr uit extracted_report
+- current_measures: huidige maatregelen uit extracted_report
 - measures: neem de gekozen maatregelen uit optimization_result over
+- required_measures_for_new_label: maatregelen die nodig zijn voor het nieuwe label (zelfde inhoud als measures)
 - total_investment: moet exact overeenkomen met optimization_result.total_cost
+- new_label: nieuw energielabel, exact gelijk aan optimization_result.expected_label
+- new_ep2_kwh_m2: nieuw verbruik (EP2) in kWh/m²·jr, exact gelijk aan optimization_result.expected_ep2_kwh_m2
 - expected_label: moet exact overeenkomen met optimization_result.expected_label
 - expected_ep2_kwh_m2: moet exact overeenkomen met optimization_result.expected_ep2_kwh_m2
 - monthly_savings_eur: moet exact overeenkomen met optimization_result.monthly_savings_eur
+- monthly_savings_basis: vermeld expliciet dat de maandbesparing is gebaseerd op gemiddelde energie- en gastarieven
 - expected_property_value_gain_eur: moet exact overeenkomen met optimization_result.expected_property_value_gain_eur
 - rationale: korte onderbouwing waarom dit scenario passend is
 

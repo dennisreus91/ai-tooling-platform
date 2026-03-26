@@ -361,10 +361,27 @@ def test_build_final_report_returns_final_report(mock_client_cls):
         summary="Scenario richting A.",
     )
     constraints = Constraints(target_label="A", required_measures=[])
+    extracted_report = SimpleNamespace(
+        current_label="D",
+        current_score=220,
+        current_ep2_kwh_m2=260,
+        measures=[],
+        notes=[],
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        },
+    )
 
     mock_response_payload = {
         "title": "Verduurzamingsadvies",
         "summary": "Met deze combinatie beweegt de woning richting label A.",
+        "current_label": "D",
+        "current_ep2_kwh_m2": 260,
+        "current_measures": [],
         "measures": [
             {
                 "name": "Dakisolatie",
@@ -373,10 +390,21 @@ def test_build_final_report_returns_final_report(mock_client_cls):
                 "rationale": "Verlaagt warmtevraag sterk.",
             }
         ],
+        "required_measures_for_new_label": [
+            {
+                "name": "Dakisolatie",
+                "cost": 4000,
+                "score_gain": 20,
+                "rationale": "Verlaagt warmtevraag sterk.",
+            }
+        ],
         "total_investment": 4000,
+        "new_label": "A",
+        "new_ep2_kwh_m2": 180,
         "expected_label": "A",
         "expected_ep2_kwh_m2": 180,
         "monthly_savings_eur": 85,
+        "monthly_savings_basis": "Gebaseerd op gemiddelde energie- en gastarieven.",
         "expected_property_value_gain_eur": 9000,
         "rationale": "Dit scenario combineert verplichte en kostenefficiënte maatregelen.",
     }
@@ -387,7 +415,7 @@ def test_build_final_report_returns_final_report(mock_client_cls):
     )
     mock_client_cls.return_value = mock_client
 
-    result = build_final_report(opt_result, constraints)
+    result = build_final_report(opt_result, extracted_report, constraints)
 
     assert result.expected_ep2_kwh_m2 == 180
     assert result.monthly_savings_eur == 85

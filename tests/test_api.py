@@ -73,6 +73,9 @@ def test_run_poc_flow_completes_successfully(
     final_report = FinalReport(
         title="Verduurzamingsadvies",
         summary="De woning kan met één maatregel richting label A bewegen.",
+        current_label="D",
+        current_ep2_kwh_m2=260,
+        current_measures=[],
         measures=[
             {
                 "name": "Dakisolatie",
@@ -81,10 +84,21 @@ def test_run_poc_flow_completes_successfully(
                 "rationale": "Verplicht opgenomen.",
             }
         ],
+        required_measures_for_new_label=[
+            {
+                "name": "Dakisolatie",
+                "cost": 4000,
+                "score_gain": 20,
+                "rationale": "Verplicht opgenomen.",
+            }
+        ],
         total_investment=4000,
+        new_label="A",
+        new_ep2_kwh_m2=180,
         expected_label="A",
         expected_ep2_kwh_m2=180,
         monthly_savings_eur=85,
+        monthly_savings_basis="Gebaseerd op gemiddelde energie- en gastarieven.",
         expected_property_value_gain_eur=9000,
         rationale="Verplichte maatregel met aantoonbare labelsprong.",
     )

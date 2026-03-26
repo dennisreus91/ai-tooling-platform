@@ -338,6 +338,7 @@ def _label_rank(label: str) -> int | None:
 
 def build_final_report(
     opt_result: OptimizationResult,
+    extracted_report: ExtractedReport,
     constraints: Constraints,
 ) -> FinalReport:
     """
@@ -348,6 +349,7 @@ def build_final_report(
 
     report_input = {
         "constraints": constraints.model_dump(),
+        "extracted_report": extracted_report.model_dump(),
         "optimization_result": opt_result.model_dump(),
     }
 
@@ -400,6 +402,31 @@ def build_final_report(
     ):
         raise RuntimeError(
             "Gemini final report generation returned an expected_property_value_gain_eur that does not match the optimization result."
+        )
+
+    if result.current_label.strip() != extracted_report.current_label.strip():
+        raise RuntimeError(
+            "Gemini final report generation returned a current_label that does not match the extracted report."
+        )
+
+    if abs(result.current_ep2_kwh_m2 - extracted_report.current_ep2_kwh_m2) > 1e-6:
+        raise RuntimeError(
+            "Gemini final report generation returned a current_ep2_kwh_m2 that does not match the extracted report."
+        )
+
+    if result.new_label.strip() != opt_result.expected_label.strip():
+        raise RuntimeError(
+            "Gemini final report generation returned a new_label that does not match the optimization result."
+        )
+
+    if abs(result.new_ep2_kwh_m2 - opt_result.expected_ep2_kwh_m2) > 1e-6:
+        raise RuntimeError(
+            "Gemini final report generation returned a new_ep2_kwh_m2 that does not match the optimization result."
+        )
+
+    if not result.monthly_savings_basis.strip():
+        raise RuntimeError(
+            "Gemini final report generation returned an empty monthly_savings_basis."
         )
 
     return result
