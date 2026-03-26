@@ -135,7 +135,8 @@ Aanvullend:
 - GEMINI_METHOD_FILE_SEARCH_STORE=fileSearchStores/...
 
 Voor live tests:
-- RUN_GEMINI_LIVE_TESTS=true
+- GEMINI_API_KEY=<jouw echte key>
+- Gebruik `--live-gemini` vlag bij pytest om live tests expliciet te activeren
 - ALLOW_TEST_FILE_ENDPOINT=true
 
 # Belangrijke ontwerpprincipes
@@ -162,8 +163,10 @@ Bij wijzigingen:
 - breek geen /run-poc-flow contract
 
 # Testinstructies
-- Standaard tests: pytest -q
-- Live Gemini tests: RUN_GEMINI_LIVE_TESTS=true pytest tests/test_e2e_live.py
+- Standaard tests (zonder echte API-calls): `pytest -q`
+- Live Gemini tests (met echte API-calls): `pytest --live-gemini tests/test_gemini_live.py tests/test_e2e_live.py -q`
+
+Live tests falen nu expliciet als `GEMINI_API_KEY` of `tests/fixtures/sample_report.pdf` ontbreekt. Hierdoor kun je in Codespaces betrouwbaar zien dat echte Gemini-calls zijn uitgevoerd in plaats van geskipte tests.
 
 # Deployment
 - Flask app

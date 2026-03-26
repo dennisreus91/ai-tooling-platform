@@ -1,4 +1,3 @@
-import os
 import socket
 import threading
 import time
@@ -11,14 +10,7 @@ from werkzeug.serving import make_server
 from app import create_app
 
 
-def _live_tests_enabled() -> bool:
-    return os.getenv("RUN_GEMINI_LIVE_TESTS", "").lower() in {"1", "true", "yes"}
-
-
-pytestmark = pytest.mark.skipif(
-    not _live_tests_enabled(),
-    reason="Live Gemini tests are disabled. Set RUN_GEMINI_LIVE_TESTS=true to enable.",
-)
+pytestmark = pytest.mark.live_gemini
 
 
 def _find_free_port() -> int:
@@ -51,13 +43,8 @@ def test_live_end_to_end_vabi_report_to_final_report(monkeypatch):
     - calls /run-poc-flow
     - validates the full pipeline result
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        pytest.skip("GEMINI_API_KEY not set")
-
     sample_path = Path("tests/fixtures/sample_report.pdf")
-    if not sample_path.exists():
-        pytest.skip("tests/fixtures/sample_report.pdf not found")
+    assert sample_path.exists(), "Missing fixture: tests/fixtures/sample_report.pdf"
 
     monkeypatch.setenv("ALLOW_TEST_FILE_ENDPOINT", "true")
 
@@ -96,6 +83,8 @@ def test_live_end_to_end_vabi_report_to_final_report(monkeypatch):
         assert final_report["total_investment"] >= 0
         assert final_report["expected_ep2_kwh_m2"] == optimization_result["expected_ep2_kwh_m2"]
         assert final_report["monthly_savings_eur"] == optimization_result["monthly_savings_eur"]
-        assert final_report["expected_property_value_gain_eur"] == optimization_result["expected_property_value_gain_eur"]
+        assert final_report["expected_property_value_gain_eur"] == optimization_result[
+            "expected_property_value_gain_eur"
+        ]
         assert isinstance(final_report["measures"], list)
         assert final_report["rationale"].strip() != ""
