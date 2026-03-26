@@ -5,6 +5,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 from gemini_service import (
+    _build_extract_config,
+    _build_final_report_config,
+    _build_optimize_config,
     build_final_report,
     download_file_to_temp,
     extract_report_data,
@@ -24,6 +27,32 @@ def test_download_file_to_temp(mock_get):
     local_path = download_file_to_temp("https://example.com/report.pdf")
 
     assert local_path.endswith(".pdf")
+
+
+@patch.dict("os.environ", {"GEMINI_METHOD_FILE_SEARCH_STORE": "fileSearchStores/test-store"}, clear=False)
+def test_configs_use_tools_without_forcing_json_mime_when_store_is_set():
+    extract_config = _build_extract_config()
+    optimize_config = _build_optimize_config()
+    report_config = _build_final_report_config()
+
+    assert extract_config.tools is not None
+    assert optimize_config.tools is not None
+    assert report_config.tools is not None
+
+    assert extract_config.response_mime_type is None
+    assert optimize_config.response_mime_type is None
+    assert report_config.response_mime_type is None
+
+
+@patch.dict("os.environ", {}, clear=True)
+def test_configs_force_json_mime_when_no_store_is_set():
+    extract_config = _build_extract_config()
+    optimize_config = _build_optimize_config()
+    report_config = _build_final_report_config()
+
+    assert extract_config.response_mime_type == "application/json"
+    assert optimize_config.response_mime_type == "application/json"
+    assert report_config.response_mime_type == "application/json"
 
 
 @patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}, clear=False)
