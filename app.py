@@ -123,7 +123,11 @@ def create_app() -> Flask:
                 constraints,
                 validated_extract,
             )
-            final_report = build_final_report(optimization_result, constraints)
+            final_report = build_final_report(
+                optimization_result,
+                validated_extract,
+                constraints,
+            )
         except ValueError as exc:
             message = str(exc)
             return {

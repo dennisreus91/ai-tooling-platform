@@ -158,6 +158,16 @@ def test_final_report_parses_valid_payload():
     report = FinalReport(
         title="Verduurzamingsadvies",
         summary="Deze woning kan met twee maatregelen naar label A.",
+        current_label="D",
+        current_ep2_kwh_m2=220,
+        current_measures=[
+            {
+                "name": "Spouwmuurisolatie",
+                "cost": 2500,
+                "score_gain": 10,
+                "notes": "Al uitgevoerd.",
+            }
+        ],
         measures=[
             {
                 "name": "Dakisolatie",
@@ -166,10 +176,21 @@ def test_final_report_parses_valid_payload():
                 "rationale": "Belangrijke verbetering van de schil.",
             }
         ],
+        required_measures_for_new_label=[
+            {
+                "name": "Dakisolatie",
+                "cost": 5000,
+                "score_gain": 20,
+                "rationale": "Belangrijke verbetering van de schil.",
+            }
+        ],
         total_investment=5000,
+        new_label="A",
+        new_ep2_kwh_m2=120,
         expected_label="A",
         expected_ep2_kwh_m2=120,
         monthly_savings_eur=95,
+        monthly_savings_basis="Berekening op basis van gemiddelde energie- en gastarieven.",
         expected_property_value_gain_eur=8500,
         rationale="De combinatie is gekozen op basis van lage investering en voldoende scoreverbetering.",
     )
@@ -187,11 +208,18 @@ def test_final_report_rejects_empty_title():
         FinalReport(
             title="   ",
             summary="Samenvatting",
+            current_label="D",
+            current_ep2_kwh_m2=220,
+            current_measures=[],
             measures=[],
+            required_measures_for_new_label=[],
             total_investment=0,
+            new_label="B",
+            new_ep2_kwh_m2=170,
             expected_label="B",
             expected_ep2_kwh_m2=170,
             monthly_savings_eur=0,
+            monthly_savings_basis="Op basis van gemiddelde tarieven.",
             expected_property_value_gain_eur=0,
             rationale="Onderbouwing",
         )

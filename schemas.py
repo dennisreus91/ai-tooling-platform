@@ -130,15 +130,30 @@ class FinalReport(BaseModel):
 
     title: str = Field(..., min_length=1)
     summary: str = Field(..., min_length=1)
+    current_label: str = Field(..., min_length=1)
+    current_ep2_kwh_m2: float = Field(..., ge=0)
+    current_measures: List[Measure] = Field(default_factory=list)
     measures: List[OptimizationMeasure] = Field(default_factory=list)
+    required_measures_for_new_label: List[OptimizationMeasure] = Field(default_factory=list)
     total_investment: float = Field(..., ge=0)
+    new_label: str = Field(..., min_length=1)
+    new_ep2_kwh_m2: float = Field(..., ge=0)
     expected_label: str = Field(..., min_length=1)
     expected_ep2_kwh_m2: float = Field(..., ge=0)
     monthly_savings_eur: float = Field(..., ge=0)
+    monthly_savings_basis: str = Field(..., min_length=1)
     expected_property_value_gain_eur: float = Field(..., ge=0)
     rationale: str = Field(..., min_length=1)
 
-    @field_validator("title", "summary", "expected_label", "rationale")
+    @field_validator(
+        "title",
+        "summary",
+        "current_label",
+        "new_label",
+        "expected_label",
+        "monthly_savings_basis",
+        "rationale",
+    )
     @classmethod
     def validate_non_empty_string(cls, value: str) -> str:
         cleaned = value.strip()
