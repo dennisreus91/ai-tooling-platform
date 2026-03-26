@@ -1,6 +1,7 @@
 import json
 import mimetypes
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -10,9 +11,10 @@ from google import genai
 from google.genai import types
 
 from prompts import (
-    BUILD_FINAL_REPORT_PROMPT,
-    EXTRACT_REPORT_PROMPT,
-    OPTIMIZE_REPORT_PROMPT,
+    BUILD_FINAL_REPORT_USER_PROMPT,
+    EXTRACT_REPORT_USER_PROMPT,
+    OPTIMIZE_REPORT_USER_PROMPT,
+    SYSTEM_INSTRUCTION_BASELINE,
 )
 from schemas import (
     Constraints,
@@ -106,33 +108,45 @@ def _build_file_search_tools() -> list[types.Tool] | None:
 def _build_extract_config() -> types.GenerateContentConfig:
     tools = _build_file_search_tools()
     if tools:
-        return types.GenerateContentConfig(tools=tools)
+        return types.GenerateContentConfig(
+            tools=tools,
+            system_instruction=SYSTEM_INSTRUCTION_BASELINE,
+        )
 
     return types.GenerateContentConfig(
         response_mime_type="application/json",
         response_json_schema=ExtractedReport.model_json_schema(),
+        system_instruction=SYSTEM_INSTRUCTION_BASELINE,
     )
 
 
 def _build_optimize_config() -> types.GenerateContentConfig:
     tools = _build_file_search_tools()
     if tools:
-        return types.GenerateContentConfig(tools=tools)
+        return types.GenerateContentConfig(
+            tools=tools,
+            system_instruction=SYSTEM_INSTRUCTION_BASELINE,
+        )
 
     return types.GenerateContentConfig(
         response_mime_type="application/json",
         response_json_schema=OptimizationResult.model_json_schema(),
+        system_instruction=SYSTEM_INSTRUCTION_BASELINE,
     )
 
 
 def _build_final_report_config() -> types.GenerateContentConfig:
     tools = _build_file_search_tools()
     if tools:
-        return types.GenerateContentConfig(tools=tools)
+        return types.GenerateContentConfig(
+            tools=tools,
+            system_instruction=SYSTEM_INSTRUCTION_BASELINE,
+        )
 
     return types.GenerateContentConfig(
         response_mime_type="application/json",
         response_json_schema=FinalReport.model_json_schema(),
+        system_instruction=SYSTEM_INSTRUCTION_BASELINE,
     )
 
 
@@ -147,7 +161,7 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
 
     response = client.models.generate_content(
         model=model,
-        contents=[uploaded_file, EXTRACT_REPORT_PROMPT],
+        contents=[uploaded_file, EXTRACT_REPORT_USER_PROMPT],
         config=_build_extract_config(),
     )
 
@@ -155,10 +169,7 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
     if not raw_text:
         raise RuntimeError("Gemini extraction returned an empty response.")
 
-    try:
-        payload = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Gemini extraction did not return valid JSON.") from exc
+    payload = _parse_llm_json(raw_text, "Gemini extraction")
 
     try:
         return ExtractedReport.model_validate(payload)
@@ -184,7 +195,7 @@ def optimize_report(
         model=model,
         contents=[
             uploaded_file,
-            OPTIMIZE_REPORT_PROMPT,
+            OPTIMIZE_REPORT_USER_PROMPT,
             json.dumps(optimization_input, ensure_ascii=False, indent=2),
         ],
         config=_build_optimize_config(),
@@ -194,15 +205,12 @@ def optimize_report(
     if not raw_text:
         raise RuntimeError("Gemini optimization returned an empty response.")
 
-    try:
-        payload = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Gemini optimization did not return valid JSON.") from exc
+    payload = _parse_llm_json(raw_text, "Gemini optimization")
 
     try:
         result = OptimizationResult.model_validate(payload)
-    except Exception as exc:
-        raise RuntimeError("Gemini optimization returned invalid OptimizationResult data.") from exc
+    except Exception:
+        result = _build_conservative_optimization_result(payload, constraints)
 
     selected_names = {m.name.strip().lower() for m in result.selected_measures}
     missing_required = [
@@ -238,7 +246,7 @@ def build_final_report(
     response = client.models.generate_content(
         model=model,
         contents=[
-            BUILD_FINAL_REPORT_PROMPT,
+            BUILD_FINAL_REPORT_USER_PROMPT,
             json.dumps(report_input, ensure_ascii=False, indent=2),
         ],
         config=_build_final_report_config(),
@@ -248,10 +256,7 @@ def build_final_report(
     if not raw_text:
         raise RuntimeError("Gemini final report generation returned an empty response.")
 
-    try:
-        payload = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Gemini final report generation did not return valid JSON.") from exc
+    payload = _parse_llm_json(raw_text, "Gemini final report generation")
 
     try:
         result = FinalReport.model_validate(payload)
@@ -290,3 +295,124 @@ def build_final_report(
         )
 
     return result
+
+
+def _parse_llm_json(raw_text: str, context: str) -> Any:
+    """
+    Parse LLM output as JSON, with a conservative fallback for fenced JSON blocks.
+    """
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError:
+        pass
+
+    fenced_match = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", raw_text, re.DOTALL)
+    if fenced_match:
+        candidate = fenced_match.group(1)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+    json_like_match = re.search(r"(\{.*\}|\[.*\])", raw_text, re.DOTALL)
+    if json_like_match:
+        candidate = json_like_match.group(1)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+    raise RuntimeError(f"{context} did not return valid JSON.")
+
+
+def _build_conservative_optimization_result(
+    payload: dict[str, Any],
+    constraints: Constraints,
+) -> OptimizationResult:
+    """
+    Build a conservative OptimizationResult when LLM output is parseable JSON
+    but does not match the expected schema.
+    """
+    raw_measures = payload.get("selected_measures") if isinstance(payload, dict) else None
+    selected_measures: list[dict[str, Any]] = []
+
+    if isinstance(raw_measures, list):
+        for raw_measure in raw_measures:
+            if not isinstance(raw_measure, dict):
+                continue
+
+            name = str(raw_measure.get("name", "")).strip()
+            cost = raw_measure.get("cost")
+            score_gain = raw_measure.get("score_gain")
+
+            if not name:
+                continue
+            if not isinstance(cost, (int, float)) or cost < 0:
+                continue
+            if not isinstance(score_gain, (int, float)) or score_gain <= 0:
+                continue
+
+            selected_measures.append(
+                {
+                    "name": name,
+                    "cost": float(cost),
+                    "score_gain": float(score_gain),
+                    "rationale": raw_measure.get("rationale"),
+                }
+            )
+
+    notes: list[str] = []
+    raw_notes = payload.get("calculation_notes") if isinstance(payload, dict) else None
+    if isinstance(raw_notes, list):
+        notes.extend(str(item) for item in raw_notes if str(item).strip())
+    elif isinstance(raw_notes, str) and raw_notes.strip():
+        notes.append(raw_notes)
+
+    notes.append(
+        "Conservatieve fallback toegepast: optimization-output was niet volledig schema-conform."
+    )
+
+    total_cost = payload.get("total_cost") if isinstance(payload, dict) else None
+    score_increase = payload.get("score_increase") if isinstance(payload, dict) else None
+    resulting_score = payload.get("resulting_score") if isinstance(payload, dict) else None
+    expected_ep2_kwh_m2 = payload.get("expected_ep2_kwh_m2") if isinstance(payload, dict) else None
+    monthly_savings_eur = (
+        payload.get("monthly_savings_eur") if isinstance(payload, dict) else None
+    )
+    expected_property_value_gain_eur = (
+        payload.get("expected_property_value_gain_eur") if isinstance(payload, dict) else None
+    )
+
+    raw_expected_label = payload.get("expected_label") if isinstance(payload, dict) else None
+
+    return OptimizationResult.model_validate(
+        {
+            "selected_measures": selected_measures,
+            "total_cost": float(total_cost)
+            if isinstance(total_cost, (int, float)) and total_cost >= 0
+            else 0.0,
+            "score_increase": float(score_increase)
+            if isinstance(score_increase, (int, float)) and score_increase >= 0
+            else 0.0,
+            "expected_label": raw_expected_label.strip()
+            if isinstance(raw_expected_label, str) and raw_expected_label.strip()
+            else constraints.target_label,
+            "resulting_score": float(resulting_score)
+            if isinstance(resulting_score, (int, float)) and resulting_score >= 0
+            else 0.0,
+            "expected_ep2_kwh_m2": float(expected_ep2_kwh_m2)
+            if isinstance(expected_ep2_kwh_m2, (int, float)) and expected_ep2_kwh_m2 >= 0
+            else 0.0,
+            "monthly_savings_eur": float(monthly_savings_eur)
+            if isinstance(monthly_savings_eur, (int, float)) and monthly_savings_eur >= 0
+            else 0.0,
+            "expected_property_value_gain_eur": float(expected_property_value_gain_eur)
+            if isinstance(expected_property_value_gain_eur, (int, float))
+            and expected_property_value_gain_eur >= 0
+            else 0.0,
+            "calculation_notes": notes,
+            "summary": payload.get("summary")
+            if isinstance(payload, dict) and isinstance(payload.get("summary"), str)
+            else "Conservatief scenario op basis van beperkte, onvolledige optimalisatie-output.",
+        }
+    )

@@ -1,5 +1,20 @@
-EXTRACT_REPORT_PROMPT = """
-Je extraheert gegevens uit een energielabelrapport, Vabi-bestand, EPA-export of PDF.
+SYSTEM_INSTRUCTION_BASELINE = """
+Je bent een normgestuurde assistent voor energielabeladvies.
+
+Vaste governance (altijd van toepassing):
+- Geef uitsluitend geldige JSON terug.
+- Geef geen markdown terug.
+- Geef geen vrije tekst buiten JSON terug.
+- Houd je strikt aan het gevraagde schema; geen extra sleutelvelden.
+- Hallucineer niet: verzin geen ontbrekende data.
+- Werk conservatief bij onzekerheid.
+- Als brondata ontbreekt of onzeker is, benoem dit expliciet in de daarvoor bedoelde velden.
+- Overtreed geen harde businessregels uit de taak.
+"""
+
+
+EXTRACT_REPORT_USER_PROMPT = """
+Taak: extraheer gegevens uit een energielabelrapport, Vabi-bestand, EPA-export of PDF.
 
 Doel:
 - lees het bestand volledig
@@ -21,15 +36,12 @@ Belangrijke instructies:
 - notes: lijst met onzekerheden, ontbrekende gegevens of interpretatiebeperkingen
 
 Regels:
-- geef alleen JSON terug
-- geen markdown
-- geen toelichtende tekst buiten de JSON
 - als EP2 ontbreekt, vermeld expliciet in notes waarom deze niet betrouwbaar te bepalen is
 - als kosten of scoreverbetering ontbreken, neem de maatregel niet op en leg dit uit in notes
 """
 
-OPTIMIZE_REPORT_PROMPT = """
-Je optimaliseert direct vanuit het aangeleverde bronrapport (PDF/Vabi/EPA) naar een gestructureerd adviesresultaat.
+OPTIMIZE_REPORT_USER_PROMPT = """
+Taak: optimaliseer direct vanuit het aangeleverde bronrapport (PDF/Vabi/EPA) naar een gestructureerd adviesresultaat.
 
 Je krijgt als input:
 1. Het bronrapport als bestand
@@ -53,15 +65,12 @@ Belangrijke regels:
 - calculation_notes moet onzekerheden en aannames expliciet benoemen
 - expected_label moet logisch volgen uit expected_ep2_kwh_m2 en de methodiek
 
-Verboden:
-- geen markdown
-- geen vrije tekst buiten JSON
-- geen alternatieve sleutelvelden
-- geen hallucinaties bij ontbrekende data; benoem onzekerheid in calculation_notes
+Regels:
+- benoem onzekerheid in calculation_notes wanneer data ontbreekt
 """
 
-BUILD_FINAL_REPORT_PROMPT = """
-Je maakt een klantgericht verduurzamingsrapport op basis van een bestaande optimization_result.
+BUILD_FINAL_REPORT_USER_PROMPT = """
+Taak: maak een klantgericht verduurzamingsrapport op basis van een bestaande optimization_result.
 
 Je krijgt als input:
 1. constraints
@@ -84,10 +93,8 @@ Verplichte inhoud:
 - expected_property_value_gain_eur: moet exact overeenkomen met optimization_result.expected_property_value_gain_eur
 - rationale: korte onderbouwing waarom dit scenario passend is
 
-Verboden:
-- geen markdown
-- geen vrije tekst buiten JSON
-- geen nieuwe maatregelen toevoegen
-- geen afwijkende waardes gebruiken voor total_investment, expected_label, expected_ep2_kwh_m2,
+Regels:
+- voeg geen nieuwe maatregelen toe
+- gebruik geen afwijkende waardes voor total_investment, expected_label, expected_ep2_kwh_m2,
   monthly_savings_eur en expected_property_value_gain_eur
 """

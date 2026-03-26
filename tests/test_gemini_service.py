@@ -5,6 +5,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from gemini_service import (
+    _build_conservative_optimization_result,
+    _parse_llm_json,
     _build_extract_config,
     _build_final_report_config,
     _build_optimize_config,
@@ -14,6 +16,7 @@ from gemini_service import (
     optimize_report,
     upload_case_file,
 )
+from prompts import SYSTEM_INSTRUCTION_BASELINE
 from schemas import Constraints, OptimizationResult
 
 
@@ -42,6 +45,52 @@ def test_configs_use_tools_without_forcing_json_mime_when_store_is_set():
     assert extract_config.response_mime_type is None
     assert optimize_config.response_mime_type is None
     assert report_config.response_mime_type is None
+    assert extract_config.system_instruction == SYSTEM_INSTRUCTION_BASELINE
+    assert optimize_config.system_instruction == SYSTEM_INSTRUCTION_BASELINE
+    assert report_config.system_instruction == SYSTEM_INSTRUCTION_BASELINE
+
+
+def test_parse_llm_json_accepts_fenced_json():
+    raw_text = """Hier is de output:\n```json\n{\"ok\": true}\n```"""
+
+    payload = _parse_llm_json(raw_text, "Gemini extraction")
+
+    assert payload == {"ok": True}
+
+
+def test_parse_llm_json_raises_on_invalid_payload():
+    with pytest.raises(RuntimeError, match="Gemini extraction did not return valid JSON"):
+        _parse_llm_json("geen json hier", "Gemini extraction")
+
+
+def test_build_conservative_optimization_result_maps_invalid_values_to_safe_defaults():
+    constraints = Constraints(target_label="A", required_measures=[])
+    payload = {
+        "selected_measures": [
+            {
+                "name": "Maatregel zonder bruikbare velden",
+                "cost_eur": None,
+                "ep2_reduction_kwh_m2_yr": None,
+            }
+        ],
+        "total_cost_eur": None,
+        "score_increase": None,
+        "expected_label": None,
+        "resulting_score": None,
+        "expected_ep2_kwh_m2_yr": None,
+        "monthly_savings_eur": None,
+        "expected_property_value_gain_eur": None,
+        "calculation_notes": "Onvoldoende brondata voor exacte berekening.",
+    }
+
+    result = _build_conservative_optimization_result(payload, constraints)
+
+    assert result.expected_label == "A"
+    assert result.total_cost == 0
+    assert result.score_increase == 0
+    assert result.expected_ep2_kwh_m2 == 0
+    assert result.selected_measures == []
+    assert any("Conservatieve fallback" in note for note in result.calculation_notes)
 
 
 @patch.dict("os.environ", {}, clear=True)
@@ -53,6 +102,9 @@ def test_configs_force_json_mime_when_no_store_is_set():
     assert extract_config.response_mime_type == "application/json"
     assert optimize_config.response_mime_type == "application/json"
     assert report_config.response_mime_type == "application/json"
+    assert extract_config.system_instruction == SYSTEM_INSTRUCTION_BASELINE
+    assert optimize_config.system_instruction == SYSTEM_INSTRUCTION_BASELINE
+    assert report_config.system_instruction == SYSTEM_INSTRUCTION_BASELINE
 
 
 @patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}, clear=False)
