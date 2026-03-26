@@ -18,11 +18,15 @@ def test_run_poc_flow_rejects_missing_json_body():
 
 @patch("app.build_final_report")
 @patch("app.optimize_report")
+@patch("app.validate_extract")
+@patch("app.extract_report_data")
 @patch("app.upload_case_file")
 @patch("app.download_file_to_temp")
 def test_run_poc_flow_completes_successfully(
     mock_download_file_to_temp,
     mock_upload_case_file,
+    mock_extract_report_data,
+    mock_validate_extract,
     mock_optimize_report,
     mock_build_final_report,
 ):
@@ -38,6 +42,14 @@ def test_run_poc_flow_completes_successfully(
 
     mock_download_file_to_temp.return_value = "/tmp/report.pdf"
     mock_upload_case_file.return_value = SimpleNamespace(name="files/123")
+    mock_extract_report_data.return_value = SimpleNamespace(
+        current_label="D",
+        current_score=220,
+        current_ep2_kwh_m2=260,
+        measures=[],
+        notes=[],
+    )
+    mock_validate_extract.return_value = mock_extract_report_data.return_value
 
     optimization_result = OptimizationResult(
         selected_measures=[

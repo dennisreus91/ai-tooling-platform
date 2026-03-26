@@ -7,6 +7,7 @@ import pytest
 from gemini_service import (
     _build_conservative_optimization_result,
     _parse_llm_json,
+    _normalize_extracted_report_payload,
     _build_extract_config,
     _build_final_report_config,
     _build_optimize_config,
@@ -61,6 +62,30 @@ def test_parse_llm_json_accepts_fenced_json():
 def test_parse_llm_json_raises_on_invalid_payload():
     with pytest.raises(RuntimeError, match="Gemini extraction did not return valid JSON"):
         _parse_llm_json("geen json hier", "Gemini extraction")
+
+
+def test_normalize_extracted_report_payload_filters_extra_fields_and_coerces_numbers():
+    payload = {
+        "current_label": " D ",
+        "current_score": "655,85",
+        "current_ep2_kwh_m2": "260,4",
+        "measures": [
+            {"name": " Dakisolatie ", "cost": "4000,0", "score_gain": "20"},
+            {"name": "Onvolledig", "cost": 3000},
+        ],
+        "notes": "Bron bevat beperkte detailinformatie.",
+        "unexpected": "ignore",
+    }
+
+    normalized = _normalize_extracted_report_payload(payload)
+
+    assert normalized["current_label"] == "D"
+    assert normalized["current_score"] == 655.85
+    assert normalized["current_ep2_kwh_m2"] == 260.4
+    assert normalized["notes"] == ["Bron bevat beperkte detailinformatie."]
+    assert normalized["measures"] == [
+        {"name": "Dakisolatie", "cost": 4000.0, "score_gain": 20.0}
+    ]
 
 
 def test_build_conservative_optimization_result_maps_invalid_values_to_safe_defaults():
@@ -166,6 +191,15 @@ def test_extract_report_data_returns_extracted_report(mock_client_cls):
 def test_optimize_report_returns_optimization_result(mock_client_cls):
     uploaded_file = SimpleNamespace(name="files/123")
     constraints = Constraints(target_label="A", required_measures=["Dakisolatie"])
+    extracted_report = SimpleNamespace(
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        }
+    )
 
     mock_response_payload = {
         "selected_measures": [
@@ -193,7 +227,7 @@ def test_optimize_report_returns_optimization_result(mock_client_cls):
     )
     mock_client_cls.return_value = mock_client
 
-    result = optimize_report(uploaded_file, constraints)
+    result = optimize_report(uploaded_file, constraints, extracted_report)
 
     assert result.expected_label == "A"
     assert result.expected_ep2_kwh_m2 == 180
@@ -211,6 +245,15 @@ def test_optimize_report_returns_optimization_result(mock_client_cls):
 def test_optimize_report_raises_when_required_measure_missing(mock_client_cls):
     uploaded_file = SimpleNamespace(name="files/123")
     constraints = Constraints(target_label="A", required_measures=["Dakisolatie"])
+    extracted_report = SimpleNamespace(
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        }
+    )
 
     mock_response_payload = {
         "selected_measures": [
@@ -239,7 +282,53 @@ def test_optimize_report_raises_when_required_measure_missing(mock_client_cls):
     mock_client_cls.return_value = mock_client
 
     with pytest.raises(RuntimeError, match="insufficient_measures"):
-        optimize_report(uploaded_file, constraints)
+        optimize_report(uploaded_file, constraints, extracted_report)
+
+
+@patch.dict(
+    "os.environ",
+    {
+        "GEMINI_API_KEY": "test-key",
+        "GEMINI_OPTIMIZATION_MODEL": "gemini-opt-model",
+    },
+    clear=False,
+)
+@patch("gemini_service.genai.Client")
+def test_optimize_report_raises_when_total_cost_is_inconsistent(mock_client_cls):
+    uploaded_file = SimpleNamespace(name="files/123")
+    constraints = Constraints(target_label="A", required_measures=[])
+    extracted_report = SimpleNamespace(
+        model_dump=lambda: {
+            "current_label": "D",
+            "current_score": 220,
+            "current_ep2_kwh_m2": 260,
+            "measures": [],
+            "notes": [],
+        }
+    )
+
+    mock_response_payload = {
+        "selected_measures": [
+            {"name": "Dakisolatie", "cost": 4000, "score_gain": 20},
+        ],
+        "total_cost": 4500,
+        "score_increase": 20,
+        "expected_label": "A",
+        "resulting_score": 240,
+        "expected_ep2_kwh_m2": 180,
+        "monthly_savings_eur": 85,
+        "expected_property_value_gain_eur": 9000,
+        "calculation_notes": [],
+    }
+
+    mock_client = Mock()
+    mock_client.models.generate_content.return_value = SimpleNamespace(
+        text=json.dumps(mock_response_payload)
+    )
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="methodology_conflict"):
+        optimize_report(uploaded_file, constraints, extracted_report)
 
 
 @patch.dict(

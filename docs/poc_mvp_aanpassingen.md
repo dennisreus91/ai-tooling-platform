@@ -15,6 +15,15 @@ De huidige implementatie ondersteunt al de basispijplijn:
 
 Voor jouw gewenste flow zijn er nog gerichte uitbreidingen nodig in **schema’s, prompts, validatie en tests**.
 
+### Statusupdate maart 2026
+- De API-flow roept nu expliciet extractie + Python-validatie aan vóór optimalisatie:
+  `download_file_to_temp -> upload_case_file -> extract_report_data -> validate_extract -> optimize_report -> build_final_report`.
+- De optimalisatie krijgt naast `constraints` nu ook het gevalideerde extract mee (`extracted_report`) als expliciete input.
+- Er zijn extra Python-guardrails toegevoegd:
+  - `total_cost` moet exact overeenkomen met de som van `selected_measures`.
+  - Bij doel `A/B/C` moet `expected_label` het doel halen (of beter); anders expliciete `methodology_conflict`.
+- De extractiestap normaliseert nu robuuster LLM-JSON (o.a. komma-getallen zoals `"655,85"` en filtering van onverwachte velden) zodat live-output minder snel faalt op schema-validatie.
+
 ---
 
 ## 2) Benodigde functionele aanpassingen (POC)

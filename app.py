@@ -8,11 +8,12 @@ from pydantic import ValidationError
 from gemini_service import (
     build_final_report,
     download_file_to_temp,
+    extract_report_data,
     optimize_report,
     upload_case_file,
 )
 from schemas import RunPocFlowRequest
-from validators import normalize_constraints
+from validators import normalize_constraints, validate_extract
 
 
 _KNOWN_PROCESSING_CODES = (
@@ -115,7 +116,13 @@ def create_app() -> Flask:
         try:
             local_path = download_file_to_temp(str(parsed.file_url))
             uploaded_file = upload_case_file(local_path)
-            optimization_result = optimize_report(uploaded_file, constraints)
+            extracted_report = extract_report_data(uploaded_file)
+            validated_extract = validate_extract(extracted_report)
+            optimization_result = optimize_report(
+                uploaded_file,
+                constraints,
+                validated_extract,
+            )
             final_report = build_final_report(optimization_result, constraints)
         except ValueError as exc:
             message = str(exc)

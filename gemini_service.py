@@ -170,6 +170,7 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
         raise RuntimeError("Gemini extraction returned an empty response.")
 
     payload = _parse_llm_json(raw_text, "Gemini extraction")
+    payload = _normalize_extracted_report_payload(payload)
 
     try:
         return ExtractedReport.model_validate(payload)
@@ -177,9 +178,75 @@ def extract_report_data(uploaded_file: Any) -> ExtractedReport:
         raise RuntimeError("Gemini extraction returned invalid ExtractedReport data.") from exc
 
 
+def _normalize_extracted_report_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+
+    normalized: dict[str, Any] = {
+        "current_label": str(payload.get("current_label", "")).strip(),
+        "current_score": _coerce_float(payload.get("current_score")),
+        "current_ep2_kwh_m2": _coerce_float(payload.get("current_ep2_kwh_m2")),
+        "measures": [],
+        "notes": [],
+    }
+
+    raw_measures = payload.get("measures")
+    if isinstance(raw_measures, list):
+        cleaned_measures: list[dict[str, Any]] = []
+        for raw_measure in raw_measures:
+            if not isinstance(raw_measure, dict):
+                continue
+
+            name = str(raw_measure.get("name", "")).strip()
+            cost = _coerce_float(raw_measure.get("cost"))
+            score_gain = _coerce_float(raw_measure.get("score_gain"))
+
+            if not name or cost is None or score_gain is None:
+                continue
+
+            measure: dict[str, Any] = {
+                "name": name,
+                "cost": cost,
+                "score_gain": score_gain,
+            }
+
+            notes = raw_measure.get("notes")
+            if isinstance(notes, str) and notes.strip():
+                measure["notes"] = notes.strip()
+
+            cleaned_measures.append(measure)
+
+        normalized["measures"] = cleaned_measures
+
+    raw_notes = payload.get("notes")
+    if isinstance(raw_notes, list):
+        normalized["notes"] = [str(item).strip() for item in raw_notes if str(item).strip()]
+    elif isinstance(raw_notes, str) and raw_notes.strip():
+        normalized["notes"] = [raw_notes.strip()]
+
+    return normalized
+
+
+def _coerce_float(value: Any) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+        cleaned = value.strip().replace(",", ".")
+        if not cleaned:
+            return None
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+
+    return None
+
+
 def optimize_report(
     uploaded_file: Any,
     constraints: Constraints,
+    extracted_report: ExtractedReport,
 ) -> OptimizationResult:
     """
     Optimize a case file directly into a structured scenario result.
@@ -189,6 +256,7 @@ def optimize_report(
 
     optimization_input = {
         "constraints": constraints.model_dump(),
+        "extracted_report": extracted_report.model_dump(),
     }
 
     response = client.models.generate_content(
@@ -225,7 +293,47 @@ def optimize_report(
             + ", ".join(missing_required)
         )
 
+    selected_total_cost = sum(measure.cost for measure in result.selected_measures)
+    if abs(selected_total_cost - result.total_cost) > 1e-6:
+        raise RuntimeError(
+            "methodology_conflict: total_cost does not match the sum of selected_measures."
+        )
+
+    if constraints.target_label != "next_step":
+        if not _is_label_achieved(result.expected_label, constraints.target_label):
+            raise RuntimeError(
+                "methodology_conflict: optimization expected_label does not achieve target_label."
+            )
+
     return result
+
+
+def _is_label_achieved(expected_label: str, target_label: str) -> bool:
+    expected_rank = _label_rank(expected_label)
+    target_rank = _label_rank(target_label)
+
+    if expected_rank is None or target_rank is None:
+        return False
+
+    return expected_rank <= target_rank
+
+
+def _label_rank(label: str) -> int | None:
+    value = label.strip().upper()
+    if not value:
+        return None
+
+    first = value[0]
+    ranking = {
+        "A": 1,
+        "B": 2,
+        "C": 3,
+        "D": 4,
+        "E": 5,
+        "F": 6,
+        "G": 7,
+    }
+    return ranking.get(first)
 
 
 def build_final_report(
