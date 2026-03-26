@@ -12,6 +12,24 @@ Vaste governance (altijd van toepassing):
 - Overtreed geen harde businessregels uit de taak.
 """
 
+METHODOLOGY_SOURCE_GUIDANCE = """
+Methodiekbronnen in file_search (gebruik deze rollen strikt):
+- NTA8800: normbron voor EP2/primair fossiel energiegebruik (kWh/m²·jr) en rekenregels.
+- ISSO 82.1: bron voor maatregelinterpretatie, uitvoerbaarheid en plausibiliteit.
+- Energielabeltabel: bron voor labelduiding op basis van EP2-drempelwaarden.
+
+Toepassingsvolgorde:
+1) Gebruik casusdata uit het geüploade rapport als primaire input.
+2) Gebruik NTA8800 om berekeningen en EP2-interpretatie te onderbouwen.
+3) Gebruik ISSO 82.1 om maatregelkeuzes te toetsen op technische plausibiliteit.
+4) Gebruik de energielabeltabel uitsluitend voor labelmapping op basis van EP2.
+
+Harde regels:
+- Als een bron geen uitsluitsel geeft: markeer expliciet als onzeker, niet gokken.
+- Maak geen aannames buiten casusdata + methodiekbron.
+- Geef in notes/calculation_notes aan welke bron is gebruikt per kernbeslissing.
+"""
+
 
 EXTRACT_REPORT_USER_PROMPT = """
 Taak: extraheer gegevens uit een energielabelrapport, Vabi-bestand, EPA-export of PDF.
@@ -98,3 +116,15 @@ Regels:
 - gebruik geen afwijkende waardes voor total_investment, expected_label, expected_ep2_kwh_m2,
   monthly_savings_eur en expected_property_value_gain_eur
 """
+
+
+def build_extract_report_prompt() -> str:
+    return f"{EXTRACT_REPORT_USER_PROMPT.strip()}\n\n{METHODOLOGY_SOURCE_GUIDANCE.strip()}"
+
+
+def build_optimize_report_prompt() -> str:
+    return f"{OPTIMIZE_REPORT_USER_PROMPT.strip()}\n\n{METHODOLOGY_SOURCE_GUIDANCE.strip()}"
+
+
+def build_final_report_prompt() -> str:
+    return f"{BUILD_FINAL_REPORT_USER_PROMPT.strip()}\n\n{METHODOLOGY_SOURCE_GUIDANCE.strip()}"
