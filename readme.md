@@ -165,8 +165,10 @@ Bij wijzigingen:
 # Testinstructies
 - Standaard tests (zonder echte API-calls): `pytest -q`
 - Live Gemini tests (met echte API-calls): `pytest --live-gemini tests/test_gemini_live.py tests/test_e2e_live.py -q`
+- Live stap-voor-stap pipeline test (per fase duidelijke assertions): `pytest --live-gemini tests/test_live_stepwise_pipeline.py -q`
 
 Live tests falen nu expliciet als `GEMINI_API_KEY` of `tests/fixtures/sample_report.pdf` ontbreekt. Hierdoor kun je in Codespaces betrouwbaar zien dat echte Gemini-calls zijn uitgevoerd in plaats van geskipte tests.
+De stap-voor-stap test helpt direct te zien in welke fase (download, upload, extractie, validatie, optimalisatie of rapportage) een live run stukloopt.
 
 # Deployment
 - Flask app
