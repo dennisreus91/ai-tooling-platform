@@ -1,29 +1,31 @@
-from typing import List, Literal, Union
+from __future__ import annotations
+
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
-AllowedTargetLabel = Literal["next_step", "A", "B", "C"]
+AllowedTargetLabel = Literal["next_step", "A", "B", "C", "D", "E", "F", "G"]
+MeasureStatusType = Literal[
+    "missing",
+    "improvable",
+    "sufficient",
+    "not_applicable",
+    "capacity_limited",
+]
 
 
 class RunPocFlowRequest(BaseModel):
-    """
-    Raw intake payload received from Typebot or another frontend.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     user_id: str = Field(..., min_length=1)
     target_label: str = Field(..., min_length=1)
     required_measures: Union[str, List[str], None] = None
     file_url: HttpUrl
+    debug: bool = False
 
 
 class Constraints(BaseModel):
-    """
-    Normalized user constraints used in later pipeline steps.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     target_label: AllowedTargetLabel
@@ -31,10 +33,6 @@ class Constraints(BaseModel):
 
 
 class Measure(BaseModel):
-    """
-    Single extracted measure from a report.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1)
@@ -42,20 +40,29 @@ class Measure(BaseModel):
     score_gain: float
     notes: str | None = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("Measure name must not be empty.")
-        return cleaned
+
+class ExtractieMeta(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    missing_fields: List[str] = Field(default_factory=list)
+    assumptions: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
+
+
+class WoningModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    meta: Dict[str, Any] = Field(default_factory=dict)
+    woning: Dict[str, Any] = Field(default_factory=dict)
+    prestatie: Dict[str, Any] = Field(default_factory=dict)
+    bouwdelen: Dict[str, Any] = Field(default_factory=dict)
+    installaties: Dict[str, Any] = Field(default_factory=dict)
+    samenvatting_huidige_maatregelen: List[str] = Field(default_factory=list)
+    extractie_meta: ExtractieMeta = Field(default_factory=ExtractieMeta)
 
 
 class ExtractedReport(BaseModel):
-    """
-    Structured output of the report extraction step.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     current_label: str = Field(..., min_length=1)
@@ -64,20 +71,66 @@ class ExtractedReport(BaseModel):
     measures: List[Measure] = Field(default_factory=list)
     notes: List[str] = Field(default_factory=list)
 
-    @field_validator("current_label")
-    @classmethod
-    def validate_current_label(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("current_label must not be empty.")
-        return cleaned
+
+class MeasureStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    measure_id: str
+    canonical_name: str
+    status: MeasureStatusType
+    current_value: Any = None
+    target_value: Any = None
+    reason: str
+
+
+class MeasureImpact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    measure_id: str
+    canonical_name: str
+    estimated_ep2_reduction: float = Field(ge=0.0)
+    estimated_investment_eur: float = Field(ge=0.0)
+    logic_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    assumptions: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
+
+
+class ScenarioDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_id: str
+    scenario_name: str
+    measure_ids: List[str] = Field(default_factory=list)
+    ordered_measure_ids: List[str] = Field(default_factory=list)
+
+
+class ScenarioResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_id: str
+    scenario_name: str
+    expected_ep2_kwh_m2: float = Field(ge=0.0)
+    expected_label: str
+    selected_measures: List[str] = Field(default_factory=list)
+    total_investment_eur: float = Field(ge=0.0)
+    monthly_savings_eur: float = Field(ge=0.0)
+    expected_property_value_gain_eur: float = Field(ge=0.0)
+    assumptions: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
+    trias_consistent: bool = True
+    technical_feasible: bool = True
+
+
+class ChosenScenario(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_id: str
+    scenario_name: str
+    reason: str
+    goal_achieved: bool
 
 
 class OptimizationMeasure(BaseModel):
-    """
-    Measure selected in the optimization step.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1)
@@ -85,20 +138,8 @@ class OptimizationMeasure(BaseModel):
     score_gain: float = Field(..., gt=0)
     rationale: str | None = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("OptimizationMeasure name must not be empty.")
-        return cleaned
-
 
 class OptimizationResult(BaseModel):
-    """
-    Structured output of the optimization step.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     selected_measures: List[OptimizationMeasure] = Field(default_factory=list)
@@ -112,51 +153,37 @@ class OptimizationResult(BaseModel):
     calculation_notes: List[str] = Field(default_factory=list)
     summary: str | None = None
 
-    @field_validator("expected_label")
-    @classmethod
-    def validate_expected_label(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("expected_label must not be empty.")
-        return cleaned
-
 
 class FinalReport(BaseModel):
-    """
-    Structured output of the final reporting step.
-    """
-
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(..., min_length=1)
     summary: str = Field(..., min_length=1)
     current_label: str = Field(..., min_length=1)
     current_ep2_kwh_m2: float = Field(..., ge=0)
-    current_measures: List[Measure] = Field(default_factory=list)
-    measures: List[OptimizationMeasure] = Field(default_factory=list)
-    required_measures_for_new_label: List[OptimizationMeasure] = Field(default_factory=list)
+    chosen_scenario: str = Field(..., min_length=1)
+    measures: List[str] = Field(default_factory=list)
+    logical_order: List[str] = Field(default_factory=list)
     total_investment: float = Field(..., ge=0)
     new_label: str = Field(..., min_length=1)
     new_ep2_kwh_m2: float = Field(..., ge=0)
-    expected_label: str = Field(..., min_length=1)
-    expected_ep2_kwh_m2: float = Field(..., ge=0)
     monthly_savings_eur: float = Field(..., ge=0)
-    monthly_savings_basis: str = Field(..., min_length=1)
     expected_property_value_gain_eur: float = Field(..., ge=0)
-    rationale: str = Field(..., min_length=1)
+    motivation: str = Field(..., min_length=1)
+    assumptions: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
+    poc_disclaimer: str = Field(..., min_length=1)
 
-    @field_validator(
-        "title",
-        "summary",
-        "current_label",
-        "new_label",
-        "expected_label",
-        "monthly_savings_basis",
-        "rationale",
-    )
-    @classmethod
-    def validate_non_empty_string(cls, value: str) -> str:
-        cleaned = value.strip()
-        if not cleaned:
-            raise ValueError("Field must not be empty.")
-        return cleaned
+
+class PocFlowResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    constraints: Constraints
+    woningmodel: WoningModel
+    measure_statuses: List[MeasureStatus]
+    measure_impacts: List[MeasureImpact]
+    scenarios: List[ScenarioDefinition]
+    scenario_results: List[ScenarioResult]
+    chosen_scenario: ChosenScenario
+    final_report: FinalReport
+

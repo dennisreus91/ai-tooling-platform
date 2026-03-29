@@ -1,0 +1,32 @@
+{
+  "templates": [
+    {
+      "id": "MIN_LABELSPRONG",
+      "description": "Minimale set voor 1 labelsprong met lage investering.",
+      "focus": ["low_cost", "limited_count"],
+      "max_measures": 3,
+      "prefer_trias_steps": [1, 2, 3]
+    },
+    {
+      "id": "GOEDKOOPSTE_DOELLABEL",
+      "description": "Zo goedkoop mogelijk richting doel-label.",
+      "focus": ["lowest_total_cost", "target_first"],
+      "max_measures": 6,
+      "prefer_trias_steps": [1, 2, 3]
+    },
+    {
+      "id": "GEBALANCEERD",
+      "description": "Balans tussen schil, installatie en opwek.",
+      "focus": ["balanced", "future_proof"],
+      "max_measures": 7,
+      "prefer_trias_steps": [1, 2, 3]
+    },
+    {
+      "id": "SCHIL_EERST",
+      "description": "Eerst schilmaatregelen, daarna installatie en opwek.",
+      "focus": ["envelope_first"],
+      "max_measures": 7,
+      "prefer_trias_steps": [1, 1, 1, 2, 3]
+    }
+  ]
+}

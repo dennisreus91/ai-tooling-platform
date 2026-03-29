@@ -1,0 +1,23 @@
+{
+  "currency": "EUR",
+  "baseline_reference": "label C",
+  "label_multipliers": {
+    "A++++": 1.09,
+    "A+++": 1.075,
+    "A++": 1.06,
+    "A+": 1.05,
+    "A": 1.04,
+    "B": 1.02,
+    "C": 1.0,
+    "D": 0.98,
+    "E": 0.96,
+    "F": 0.94,
+    "G": 0.92
+  },
+  "label_jump_flat_adjustment_eur": {
+    "1": 2500,
+    "2": 5500,
+    "3": 9000,
+    "4": 13000
+  }
+}

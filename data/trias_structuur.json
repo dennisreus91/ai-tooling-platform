@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "step": 1,
+      "name": "beperk_energievraag",
+      "categories": ["schil", "glas", "luchtdichting", "afgifte"]
+    },
+    {
+      "step": 2,
+      "name": "gebruik_duurzame_energie",
+      "categories": ["duurzame_opwek", "duurzame_installatie"]
+    },
+    {
+      "step": 3,
+      "name": "efficient_fossiel_restant",
+      "categories": ["efficient_fossiel", "regeling", "ventilatie"]
+    }
+  ]
+}

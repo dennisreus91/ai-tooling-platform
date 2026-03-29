@@ -1,0 +1,15 @@
+{
+  "title": "WoningModelExtract",
+  "type": "object",
+  "properties": {
+    "meta": {"type": "object"},
+    "woning": {"type": "object"},
+    "prestatie": {"type": "object"},
+    "bouwdelen": {"type": "object"},
+    "installaties": {"type": "object"},
+    "samenvatting_huidige_maatregelen": {"type": "array", "items": {"type": "string"}},
+    "extractie_meta": {"type": "object"}
+  },
+  "required": ["prestatie", "extractie_meta"],
+  "additionalProperties": true
+}
