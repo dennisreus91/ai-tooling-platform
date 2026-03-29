@@ -1,18 +1,150 @@
 {
+  "schema_version": "1.0",
+  "purpose": "Deterministische labelmapping voor de energielabel-tool. Dit bestand is de vaste bron voor het vertalen van EP2 (primair fossiel energiegebruik in kWh/m2.jr) naar energielabelklassen binnen de POC. Gemini mag deze grenzen niet zelf afleiden of wijzigen.",
   "method": "EP2_kWh_m2_yr",
   "unit": "kWh/m2.jr",
-  "order_best_to_worst": ["A++++", "A+++", "A++", "A+", "A", "B", "C", "D", "E", "F", "G"],
+  "deterministic_source": true,
+  "order_best_to_worst": [
+    "A++++",
+    "A+++",
+    "A++",
+    "A+",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G"
+  ],
+  "label_rank": {
+    "A++++": 1,
+    "A+++": 2,
+    "A++": 3,
+    "A+": 4,
+    "A": 5,
+    "B": 6,
+    "C": 7,
+    "D": 8,
+    "E": 9,
+    "F": 10,
+    "G": 11
+  },
   "boundaries": [
-    {"label": "A++++", "ep2_max_exclusive": 0.0},
-    {"label": "A+++", "ep2_min_inclusive": 0.0, "ep2_max_exclusive": 50.0},
-    {"label": "A++", "ep2_min_inclusive": 50.0, "ep2_max_exclusive": 75.0},
-    {"label": "A+", "ep2_min_inclusive": 75.0, "ep2_max_exclusive": 105.0},
-    {"label": "A", "ep2_min_inclusive": 105.0, "ep2_max_exclusive": 160.0},
-    {"label": "B", "ep2_min_inclusive": 160.0, "ep2_max_exclusive": 190.0},
-    {"label": "C", "ep2_min_inclusive": 190.0, "ep2_max_exclusive": 250.0},
-    {"label": "D", "ep2_min_inclusive": 250.0, "ep2_max_exclusive": 290.0},
-    {"label": "E", "ep2_min_inclusive": 290.0, "ep2_max_exclusive": 335.0},
-    {"label": "F", "ep2_min_inclusive": 335.0, "ep2_max_exclusive": 380.0},
-    {"label": "G", "ep2_min_inclusive": 380.0}
+    {
+      "label": "A++++",
+      "ep2_min_inclusive": null,
+      "ep2_max_exclusive": 0.0,
+      "description": "EP2 kleiner dan 0.0"
+    },
+    {
+      "label": "A+++",
+      "ep2_min_inclusive": 0.0,
+      "ep2_max_exclusive": 50.0,
+      "description": "EP2 vanaf 0.0 tot kleiner dan 50.0"
+    },
+    {
+      "label": "A++",
+      "ep2_min_inclusive": 50.0,
+      "ep2_max_exclusive": 75.0,
+      "description": "EP2 vanaf 50.0 tot kleiner dan 75.0"
+    },
+    {
+      "label": "A+",
+      "ep2_min_inclusive": 75.0,
+      "ep2_max_exclusive": 105.0,
+      "description": "EP2 vanaf 75.0 tot kleiner dan 105.0"
+    },
+    {
+      "label": "A",
+      "ep2_min_inclusive": 105.0,
+      "ep2_max_exclusive": 160.0,
+      "description": "EP2 vanaf 105.0 tot kleiner dan 160.0"
+    },
+    {
+      "label": "B",
+      "ep2_min_inclusive": 160.0,
+      "ep2_max_exclusive": 190.0,
+      "description": "EP2 vanaf 160.0 tot kleiner dan 190.0"
+    },
+    {
+      "label": "C",
+      "ep2_min_inclusive": 190.0,
+      "ep2_max_exclusive": 250.0,
+      "description": "EP2 vanaf 190.0 tot kleiner dan 250.0"
+    },
+    {
+      "label": "D",
+      "ep2_min_inclusive": 250.0,
+      "ep2_max_exclusive": 290.0,
+      "description": "EP2 vanaf 250.0 tot kleiner dan 290.0"
+    },
+    {
+      "label": "E",
+      "ep2_min_inclusive": 290.0,
+      "ep2_max_exclusive": 335.0,
+      "description": "EP2 vanaf 290.0 tot kleiner dan 335.0"
+    },
+    {
+      "label": "F",
+      "ep2_min_inclusive": 335.0,
+      "ep2_max_exclusive": 380.0,
+      "description": "EP2 vanaf 335.0 tot kleiner dan 380.0"
+    },
+    {
+      "label": "G",
+      "ep2_min_inclusive": 380.0,
+      "ep2_max_exclusive": null,
+      "description": "EP2 vanaf 380.0 en hoger"
+    }
+  ],
+  "mapping_rules": {
+    "lower_bound_inclusive": true,
+    "upper_bound_exclusive": true,
+    "use_first_matching_boundary": true,
+    "round_ep2_before_mapping": false,
+    "ep2_decimal_separator_normalization": true
+  },
+  "input_validation": {
+    "requires_numeric_ep2": true,
+    "allow_null": false,
+    "allow_negative_values": true,
+    "null_behavior": "raise_explicit_error",
+    "non_numeric_behavior": "raise_explicit_error"
+  },
+  "selection_helpers": {
+    "supports_target_label_comparison": true,
+    "supports_next_step_logic": true,
+    "next_worse_label": {
+      "A++++": "A+++",
+      "A+++": "A++",
+      "A++": "A+",
+      "A+": "A",
+      "A": "B",
+      "B": "C",
+      "C": "D",
+      "D": "E",
+      "E": "F",
+      "F": "G",
+      "G": null
+    },
+    "next_better_label": {
+      "A++++": null,
+      "A+++": "A++++",
+      "A++": "A+++",
+      "A+": "A++",
+      "A": "A+",
+      "B": "A",
+      "C": "B",
+      "D": "C",
+      "E": "D",
+      "F": "E",
+      "G": "F"
+    }
+  },
+  "notes": [
+    "Gebruik dit bestand als enige bron voor labeltoekenning binnen de POC.",
+    "Gemini mag EP2 inschatten binnen de POC-doorrekening, maar labeltoekenning moet altijd met deze grenzen worden gevalideerd.",
+    "De inhoud van dit bestand moet worden gecontroleerd tegen de gekozen bronversie voor de energielabeltool voordat productiegebruik plaatsvindt."
   ]
 }
