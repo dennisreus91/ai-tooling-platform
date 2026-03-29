@@ -1,119 +1,344 @@
 {
+  "schema_version": "1.0",
   "title": "WoningModelExtract",
+  "description": "Flexibel en null-safe woningmodel voor extractie uit Vabi-rapporten binnen de energielabel-tool POC. Dit schema is bedoeld als doelschema voor LLM-extractie en verdere normalisatie. Ontbrekende velden mogen niet tot een harde fout leiden; aannames en onzekerheden moeten expliciet worden vastgelegd.",
   "type": "object",
   "properties": {
     "meta": {
       "type": "object",
+      "description": "Algemene metadata over de bron en extractierun.",
       "properties": {
-        "bron": {"type": ["string", "null"]},
-        "versie": {"type": ["string", "null"]}
+        "bron": {
+          "type": ["string", "null"]
+        },
+        "versie": {
+          "type": ["string", "null"]
+        },
+        "bestandstype": {
+          "type": ["string", "null"]
+        },
+        "extractiemethode": {
+          "type": ["string", "null"]
+        }
       },
       "additionalProperties": true
     },
     "woning": {
       "type": "object",
+      "description": "Algemene woningkenmerken die nodig zijn voor rapportage, aannameregels en scenario-context.",
       "properties": {
-        "bouwjaar": {"type": ["integer", "null"]},
-        "type": {"type": ["string", "null"]}
+        "bouwjaar": {
+          "type": ["integer", "null"]
+        },
+        "type": {
+          "type": ["string", "null"]
+        },
+        "gebruiksoppervlakte_m2": {
+          "type": ["number", "null"]
+        },
+        "inhoud_m3": {
+          "type": ["number", "null"]
+        },
+        "bouwperiode": {
+          "type": ["string", "null"]
+        },
+        "woningtype_brontekst": {
+          "type": ["string", "null"]
+        }
       },
       "additionalProperties": true
     },
     "prestatie": {
       "type": "object",
+      "description": "Prestatie-indicatoren van de huidige woning. EP2 is leidend voor labelduiding, maar mag tijdelijk null zijn tijdens extractie zolang onzekerheden expliciet worden vastgelegd.",
       "properties": {
-        "current_ep2_kwh_m2": {"type": ["number", "null"]},
-        "current_label": {"type": ["string", "null"]}
+        "current_ep2_kwh_m2": {
+          "type": ["number", "null"]
+        },
+        "current_label": {
+          "type": ["string", "null"]
+        },
+        "ep1_kwh_m2": {
+          "type": ["number", "null"]
+        },
+        "ep3_aandeel_hernieuwbaar_pct": {
+          "type": ["number", "null"]
+        },
+        "bronwaarde_ep2": {
+          "type": ["string", "null"]
+        },
+        "bronwaarde_label": {
+          "type": ["string", "null"]
+        }
       },
-      "required": ["current_ep2_kwh_m2"],
+      "additionalProperties": true
+    },
+    "maatwerkadvies": {
+      "type": "object",
+      "description": "Aanvullende maatwerkadvieswaarden uit Vabi of rapportbron, bruikbaar voor plausibiliteit, energiebesparing en rapportage.",
+      "properties": {
+        "gasverbruik_m3": {
+          "type": ["number", "null"]
+        },
+        "elektriciteitsverbruik_kwh": {
+          "type": ["number", "null"]
+        },
+        "elektriciteitsopwekking_kwh": {
+          "type": ["number", "null"]
+        },
+        "netto_elektriciteit_kwh": {
+          "type": ["number", "null"]
+        },
+        "warmteverbruik_gj": {
+          "type": ["number", "null"]
+        },
+        "co2_kg": {
+          "type": ["number", "null"]
+        }
+      },
       "additionalProperties": true
     },
     "bouwdelen": {
       "type": "object",
+      "description": "Bouwdelen van de thermische schil die relevant zijn voor maatregelmatching en scenario-opbouw.",
       "properties": {
-        "dak": {"type": "object", "properties": {"rc": {"type": ["number", "null"]}}, "additionalProperties": true},
-        "gevel": {"type": "object", "properties": {"rc": {"type": ["number", "null"]}}, "additionalProperties": true},
-        "vloer": {"type": "object", "properties": {"rc": {"type": ["number", "null"]}}, "additionalProperties": true},
+        "dak": {
+          "type": "object",
+          "properties": {
+            "rc": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "gevel": {
+          "type": "object",
+          "properties": {
+            "rc": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "vloer": {
+          "type": "object",
+          "properties": {
+            "rc": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
         "ramen": {
           "type": "object",
           "properties": {
-            "u_waarde": {"type": ["number", "null"]},
-            "kozijn_isolerend": {"type": ["boolean", "null"]}
+            "u_waarde": {
+              "type": ["number", "null"]
+            },
+            "glastype": {
+              "type": ["string", "null"]
+            },
+            "kozijn_isolerend": {
+              "type": ["boolean", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
           },
           "additionalProperties": true
         },
-        "luchtdichting": {"type": "object", "properties": {"qv10": {"type": ["number", "null"]}}, "additionalProperties": true}
-      },
-      "additionalProperties": true
-    },
-    "installaties": {
-      "type": "object",
-      "properties": {
-        "verwarming": {
+        "luchtdichting": {
           "type": "object",
           "properties": {
-            "type": {"type": ["string", "null"]},
-            "rendement": {"type": ["number", "null"]}
-          },
-          "additionalProperties": true
-        },
-        "afgifte": {"type": "object", "properties": {"max_aanvoer_temp_c": {"type": ["number", "null"]}}, "additionalProperties": true},
-        "regeling": {
-          "type": "object",
-          "properties": {
-            "waterzijdig_ingeregeld": {"type": ["boolean", "null"]},
-            "klasse": {"type": ["number", "null"]}
-          },
-          "additionalProperties": true
-        },
-        "ventilatie": {
-          "type": "object",
-          "properties": {
-            "type": {"type": ["string", "null"]},
-            "vraaggestuurd": {"type": ["boolean", "null"]},
-            "inregeling_ok": {"type": ["boolean", "null"]}
-          },
-          "additionalProperties": true
-        },
-        "tapwater": {
-          "type": "object",
-          "properties": {
-            "zonneboiler": {"type": ["boolean", "null"]},
-            "douche_wtw": {"type": ["boolean", "null"]},
-            "rendement": {"type": ["number", "null"]}
-          },
-          "additionalProperties": true
-        },
-        "pv": {
-          "type": "object",
-          "properties": {
-            "kwp": {"type": ["number", "null"]},
-            "max_extra_kwp": {"type": ["number", "null"]}
-          },
-          "additionalProperties": true
-        },
-        "elektra": {
-          "type": "object",
-          "properties": {
-            "max_aansluitwaarde_kw": {"type": ["number", "null"]}
+            "qv10": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
           },
           "additionalProperties": true
         }
       },
       "additionalProperties": true
     },
-    "samenvatting_huidige_maatregelen": {"type": "array", "items": {"type": "string"}},
+    "installaties": {
+      "type": "object",
+      "description": "Installaties en opwekcomponenten die relevant zijn voor maatregelmatching, scenario-opbouw en Gemini-doorrekening.",
+      "properties": {
+        "verwarming": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": ["string", "null"]
+            },
+            "rendement": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "afgifte": {
+          "type": "object",
+          "properties": {
+            "max_aanvoer_temp_c": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "regeling": {
+          "type": "object",
+          "properties": {
+            "waterzijdig_ingeregeld": {
+              "type": ["boolean", "null"]
+            },
+            "klasse": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "ventilatie": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": ["string", "null"]
+            },
+            "vraaggestuurd": {
+              "type": ["boolean", "null"]
+            },
+            "inregeling_ok": {
+              "type": ["boolean", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "tapwater": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": ["string", "null"]
+            },
+            "zonneboiler": {
+              "type": ["boolean", "null"]
+            },
+            "douche_wtw": {
+              "type": ["boolean", "null"]
+            },
+            "rendement": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "pv": {
+          "type": "object",
+          "properties": {
+            "kwp": {
+              "type": ["number", "null"]
+            },
+            "max_extra_kwp": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "elektra": {
+          "type": "object",
+          "properties": {
+            "max_aansluitwaarde_kw": {
+              "type": ["number", "null"]
+            },
+            "brontekst": {
+              "type": ["string", "null"]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "samenvatting_huidige_maatregelen": {
+      "type": "array",
+      "description": "Vrije samenvattingslijst van herkende huidige maatregelen of energetische kenmerken.",
+      "items": {
+        "type": "string"
+      }
+    },
     "extractie_meta": {
       "type": "object",
+      "description": "Verplichte metadata over kwaliteit van de extractie.",
       "properties": {
-        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-        "missing_fields": {"type": "array", "items": {"type": "string"}},
-        "assumptions": {"type": "array", "items": {"type": "string"}},
-        "uncertainties": {"type": "array", "items": {"type": "string"}}
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "missing_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "uncertainties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_sections_found": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
-      "required": ["confidence", "missing_fields", "assumptions", "uncertainties"],
+      "required": [
+        "confidence",
+        "missing_fields",
+        "assumptions",
+        "uncertainties"
+      ],
       "additionalProperties": true
     }
   },
-  "required": ["prestatie", "extractie_meta"],
+  "required": [
+    "prestatie",
+    "extractie_meta"
+  ],
   "additionalProperties": true
 }
