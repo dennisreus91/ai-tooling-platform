@@ -1,0 +1,9 @@
+{
+  "rules": [
+    {"field": "woning.oppervlakte_m2", "fallback": 120, "reason": "Conservatief tussenwoningprofiel"},
+    {"field": "prestatie.current_ep2_kwh_m2", "fallback": 320, "reason": "Onvolledige Vabi-data, conservatieve default"},
+    {"field": "installaties.verwarming.type", "fallback": "hr_ketel", "reason": "Meest voorkomende bestaande situatie"},
+    {"field": "bouwdelen.dak.rc", "fallback": 2.0, "reason": "Onbekende isolatiewaarde: matig geïsoleerd"}
+  ],
+  "assumption_output_policy": "always_include_assumptions_and_uncertainties"
+}

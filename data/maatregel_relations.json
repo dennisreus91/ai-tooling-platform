@@ -1,0 +1,17 @@
+{
+  "dependencies": [
+    {"measure_id": "triple_glas", "requires": ["kozijnvervanging_isolerend"]},
+    {"measure_id": "all_electric_wp", "requires": ["lage_temp_afgifte"]},
+    {"measure_id": "balansventilatie_wtw", "requires": ["kierdichting"]}
+  ],
+  "mutual_exclusions": [
+    ["all_electric_wp", "hybride_warmtepomp"],
+    ["all_electric_wp", "hr_ketel_vervanging"],
+    ["hrpp_glas", "triple_glas"]
+  ],
+  "ordering_rules": [
+    {"before": "dakisolatie", "after": "all_electric_wp"},
+    {"before": "gevelisolatie", "after": "all_electric_wp"},
+    {"before": "kierdichting", "after": "balansventilatie_wtw"}
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "method": "EP2_kWh_m2_yr",
+  "unit": "kWh/m2.jr",
+  "order_best_to_worst": ["A++++", "A+++", "A++", "A+", "A", "B", "C", "D", "E", "F", "G"],
+  "boundaries": [
+    {"label": "A++++", "ep2_max_exclusive": 0.0},
+    {"label": "A+++", "ep2_min_inclusive": 0.0, "ep2_max_exclusive": 50.0},
+    {"label": "A++", "ep2_min_inclusive": 50.0, "ep2_max_exclusive": 75.0},
+    {"label": "A+", "ep2_min_inclusive": 75.0, "ep2_max_exclusive": 105.0},
+    {"label": "A", "ep2_min_inclusive": 105.0, "ep2_max_exclusive": 160.0},
+    {"label": "B", "ep2_min_inclusive": 160.0, "ep2_max_exclusive": 190.0},
+    {"label": "C", "ep2_min_inclusive": 190.0, "ep2_max_exclusive": 250.0},
+    {"label": "D", "ep2_min_inclusive": 250.0, "ep2_max_exclusive": 290.0},
+    {"label": "E", "ep2_min_inclusive": 290.0, "ep2_max_exclusive": 335.0},
+    {"label": "F", "ep2_min_inclusive": 335.0, "ep2_max_exclusive": 380.0},
+    {"label": "G", "ep2_min_inclusive": 380.0}
+  ]
+}

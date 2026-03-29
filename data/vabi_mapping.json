@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "target_field": "prestatie.current_ep2_kwh_m2",
+      "possible_labels": ["EP2", "Primair fossiel energiegebruik", "kWh/m².yr", "kWh/m2 per jaar"],
+      "section_hints": ["Samenvatting", "Energieprestatie", "Resultaten"],
+      "pattern_hints": ["EP2\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["label_mapping"],
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+    },
+    {
+      "target_field": "woning.bouwjaar",
+      "possible_labels": ["Bouwjaar", "Bouwperiode"],
+      "section_hints": ["Objectgegevens", "Woningkenmerken"],
+      "pattern_hints": ["(19|20)\\d{2}"],
+      "value_type": "int",
+      "required_for": ["measure_relevance"],
+      "fallback_behavior": "null_allowed"
+    }
+  ]
+}

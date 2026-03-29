@@ -1,0 +1,20 @@
+{
+  "cases": [
+    {
+      "woningtype": "tussenwoning",
+      "label_huidig": "D",
+      "ep2_huidig": 280,
+      "maatregelen": ["dakisolatie", "hrpp_glas", "hybride_warmtepomp", "pv_zonnepanelen"],
+      "label_nieuw": "B",
+      "ep2_nieuw": 180
+    },
+    {
+      "woningtype": "vrijstaand",
+      "label_huidig": "E",
+      "ep2_huidig": 340,
+      "maatregelen": ["dakisolatie", "gevelisolatie", "lage_temp_afgifte", "all_electric_wp", "pv_zonnepanelen"],
+      "label_nieuw": "A",
+      "ep2_nieuw": 140
+    }
+  ]
+}
