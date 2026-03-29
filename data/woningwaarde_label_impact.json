@@ -1,6 +1,16 @@
 {
+  "schema_version": "1.0",
+  "purpose": "Indicatieve woningwaarde-impact per energielabel voor gebruik in rapportage en business case binnen de energielabel-tool. Dit bestand is niet bedoeld voor de kern-doorrekening van EP2 of labelbepaling en mag niet als primaire selectieregel voor scenario-keuze worden gebruikt.",
+  "type": "indicative_reporting_only",
   "currency": "EUR",
+  "is_deterministic_for_reporting": true,
+  "not_for_core_calculation": true,
+  "not_for_primary_scenario_selection": true,
   "baseline_reference": "label C",
+  "method": {
+    "primary": "label_multiplier_relative_to_baseline",
+    "secondary": "optional_flat_adjustment_by_label_jump"
+  },
   "label_multipliers": {
     "A++++": 1.09,
     "A+++": 1.075,
@@ -18,6 +28,65 @@
     "1": 2500,
     "2": 5500,
     "3": 9000,
-    "4": 13000
-  }
+    "4": 13000,
+    "5": 17000,
+    "6": 21000
+  },
+  "calculation_guidance": {
+    "requires_current_market_value": false,
+    "when_market_value_known": [
+      "bepaal multiplier_huidig op basis van huidig label",
+      "bepaal multiplier_nieuw op basis van nieuw label",
+      "bereken relatieve factor = multiplier_nieuw / multiplier_huidig",
+      "pas relatieve factor toe op huidige woningwaarde",
+      "optioneel: voeg flat adjustment toe op basis van aantal labelsprongen als aparte indicatieve component",
+      "rapporteer altijd dat de uitkomst indicatief is"
+    ],
+    "when_market_value_unknown": [
+      "toon alleen procentuele verandering tussen huidig en nieuw label",
+      "toon eventueel alleen de flat adjustment range als indicatieve euro-impact",
+      "vermeld expliciet dat geen actuele woningwaarde is gebruikt"
+    ]
+  },
+  "selection_helpers": {
+    "label_rank_best_to_worst": [
+      "A++++",
+      "A+++",
+      "A++",
+      "A+",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G"
+    ],
+    "max_supported_label_jump_for_flat_adjustment": 6
+  },
+  "uncertainty_policy": {
+    "always_mark_as_indicative": true,
+    "not_a_taxation": true,
+    "market_context_sensitive": true,
+    "regional_variation_possible": true,
+    "building_specific_variation_possible": true
+  },
+  "reporting_rules": {
+    "show_percentage_effect": true,
+    "show_euro_effect_only_if_input_value_available_or_flat_adjustment_used": true,
+    "always_include_disclaimer": true,
+    "preferred_output_fields": [
+      "huidig_label",
+      "nieuw_label",
+      "procentuele_waardeverandering_indicatief",
+      "euro_waardeverandering_indicatief",
+      "toelichting",
+      "disclaimer"
+    ]
+  },
+  "notes": [
+    "Gebruik dit bestand alleen na scenario-doorrekening en labelmapping.",
+    "De procentuele impact is indicatief en bedoeld als ondersteunende business case in het adviesrapport.",
+    "De uitkomst mag niet worden gepresenteerd als officiële taxatie of gegarandeerde marktwaarde."
+  ]
 }
