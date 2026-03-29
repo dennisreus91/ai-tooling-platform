@@ -1,32 +1,124 @@
 {
+  "schema_version": "1.0",
+  "purpose": "Vaste scenario-templates voor de energielabel-tool. Deze templates sturen de opbouw van logische maatregelpakketten richting labelsprong en doellabel. De templates zijn leidend voor scenario-opbouw binnen de POC en moeten door Gemini en Python-regels consistent worden toegepast.",
+  "global_rules": {
+    "start_from_current_building_state": true,
+    "use_only_label_relevant_measures": true,
+    "respect_measure_dependencies": true,
+    "respect_mutual_exclusions": true,
+    "respect_capacity_limits": true,
+    "respect_trias_energetica": true,
+    "prefer_logical_measure_order": true,
+    "stop_when_target_label_reached": true,
+    "if_target_not_reached_keep_best_available": true
+  },
+  "trias_strategy": {
+    "step_1": "beperk_energievraag",
+    "step_2": "gebruik_duurzame_energie",
+    "step_3": "efficiente_fossiele_restantvraag",
+    "default_priority_order": [1, 2, 3]
+  },
   "templates": [
     {
       "id": "MIN_LABELSPRONG",
-      "description": "Minimale set voor 1 labelsprong met lage investering.",
-      "focus": ["low_cost", "limited_count"],
+      "description": "Zo klein mogelijke logische maatregelset om minimaal één labelsprong te realiseren met beperkte investering.",
+      "goal_type": "next_step",
+      "focus": [
+        "low_cost",
+        "limited_count",
+        "quick_win"
+      ],
       "max_measures": 3,
-      "prefer_trias_steps": [1, 2, 3]
+      "strict_trias": false,
+      "prefer_trias_steps": [1, 2, 3],
+      "build_strategy": [
+        "start met ontbrekende of verbeterbare maatregelen met hoge impact en lage investering",
+        "geef voorrang aan stap 1-maatregelen als deze direct logisch bijdragen",
+        "gebruik stap 2 of 3 alleen als nodig voor de labelsprong",
+        "voorkom zware ingrepen als een kleinere logische set voldoende is"
+      ],
+      "selection_rule": "kies de goedkoopste logische combinatie die minimaal één labelsprong realiseert",
+      "stop_rule": "stop zodra minimaal één labelverbetering is bereikt",
+      "fallback_rule": "als geen labelsprong haalbaar is, kies de best scorende kleine logische set en markeer dit expliciet",
+      "report_positioning": "toon als laagdrempelige route of eerste verduurzamingsstap"
     },
     {
       "id": "GOEDKOOPSTE_DOELLABEL",
-      "description": "Zo goedkoop mogelijk richting doel-label.",
-      "focus": ["lowest_total_cost", "target_first"],
+      "description": "Goedkoopste logische route om het gewenste doel-label te halen.",
+      "goal_type": "target_label",
+      "focus": [
+        "lowest_total_cost",
+        "target_first"
+      ],
       "max_measures": 6,
-      "prefer_trias_steps": [1, 2, 3]
+      "strict_trias": false,
+      "prefer_trias_steps": [1, 2, 3],
+      "build_strategy": [
+        "start met maatregelen met gunstige verhouding tussen investering en verwachte EP2-impact",
+        "geef voorkeur aan maatregelen uit stap 1 als deze benodigd zijn om het doel-label logisch te halen",
+        "voeg stap 2-maatregelen toe als stap 1 alleen onvoldoende is",
+        "gebruik stap 3 alleen als resterende stap nodig is of als duurzame route niet logisch/haalbaar is"
+      ],
+      "selection_rule": "kies het scenario met de laagste totale investering dat het doel-label haalt",
+      "stop_rule": "stop zodra het doel-label gehaald is",
+      "fallback_rule": "als geen scenario het doel-label haalt, kies het scenario dat het dichtst bij het doel komt tegen de laagste logische investering",
+      "report_positioning": "toon als voorkeursoptie wanneer gebruiker primair op kosten stuurt"
     },
     {
       "id": "GEBALANCEERD",
-      "description": "Balans tussen schil, installatie en opwek.",
-      "focus": ["balanced", "future_proof"],
+      "description": "Gebalanceerd scenario met logische combinatie van schil, installatie en opwek, gericht op toekomstbestendigheid en uitlegbaar advies.",
+      "goal_type": "target_label",
+      "focus": [
+        "balanced",
+        "future_proof",
+        "logical_sequence"
+      ],
       "max_measures": 7,
-      "prefer_trias_steps": [1, 2, 3]
+      "strict_trias": true,
+      "prefer_trias_steps": [1, 2, 3],
+      "build_strategy": [
+        "verbeter eerst zwakke onderdelen van de schil",
+        "voeg daarna duurzame installatiemaatregelen toe",
+        "vul daarna aan met hernieuwbare opwek of resterende systeemoptimalisatie",
+        "vermijd scenario's die te veel op één maatregelcategorie leunen als een evenwichtiger pakket logischer is"
+      ],
+      "selection_rule": "kies het meest logische scenario dat het doel-label haalt met een goede balans tussen investering, EP2-reductie en uitvoerbaarheid",
+      "stop_rule": "stop zodra het doel-label gehaald is met een logisch samengesteld pakket",
+      "fallback_rule": "als doel-label niet haalbaar is, kies het meest evenwichtige scenario met maximale plausibele labelverbetering",
+      "report_positioning": "toon als standaardadvies of professioneel voorkeursadvies"
     },
     {
       "id": "SCHIL_EERST",
-      "description": "Eerst schilmaatregelen, daarna installatie en opwek.",
-      "focus": ["envelope_first"],
+      "description": "Scenario waarin eerst de energetische schil wordt verbeterd en daarna pas installaties en opwek worden toegevoegd.",
+      "goal_type": "target_label",
+      "focus": [
+        "envelope_first",
+        "logical_building_first"
+      ],
       "max_measures": 7,
-      "prefer_trias_steps": [1, 1, 1, 2, 3]
+      "strict_trias": true,
+      "prefer_trias_steps": [1, 2, 3],
+      "build_strategy": [
+        "bouw scenario eerst op met stap 1-maatregelen",
+        "voeg stap 2 pas toe als stap 1 onvoldoende is voor het doel-label",
+        "gebruik stap 3 alleen als resterende aanvullende optimalisatie",
+        "geef voorrang aan schilverbeteringen die randvoorwaardelijk zijn voor warmtepomp of WTW"
+      ],
+      "selection_rule": "kies het beste scenario dat bouwkundig logisch is en het doel-label haalt met schilmaatregelen als dominante eerste stap",
+      "stop_rule": "stop zodra het doel-label gehaald is binnen een schil-eerst aanpak",
+      "fallback_rule": "als doel-label niet haalbaar is, kies het beste schilgedreven scenario en rapporteer waarom verdere stappen nodig blijven",
+      "report_positioning": "toon als adviesroute voor woningen met duidelijk zwakke schil of als gebruiker bouwkundig eerst wil verduurzamen"
     }
+  ],
+  "selection_priority_between_templates": [
+    "GOEDKOOPSTE_DOELLABEL",
+    "GEBALANCEERD",
+    "SCHIL_EERST",
+    "MIN_LABELSPRONG"
+  ],
+  "notes": [
+    "De templates zijn bedoeld om scenario-opbouw te sturen; de uiteindelijke EP2-inschatting gebeurt in de POC via Gemini.",
+    "Scenario-selectie moet niet alleen op LLM-oordeel rusten, maar ook op deterministische regels zoals doel-label, investering, Trias-volgorde en technische plausibiliteit.",
+    "De tool moet altijd meerdere templates doorrekenen voordat een voorkeurscenario gekozen wordt."
   ]
 }
