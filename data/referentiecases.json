@@ -1,20 +1,106 @@
 {
+  "schema_version": "1.0",
+  "purpose": "Referentiecases voor de energielabel-tool. Deze cases worden gebruikt als plausibiliteitsanker voor Gemini bij maatregel-impact, scenario-opbouw en scenario-doorrekening binnen de POC. Ze zijn ondersteunend en niet deterministisch leidend.",
+  "usage_rules": {
+    "use_for_plausibility": true,
+    "use_for_consistency": true,
+    "not_a_substitute_for_labelgrenzen": true,
+    "not_a_substitute_for_methodiek": true,
+    "require_measure_ids_to_match_maatregelenbibliotheek": true
+  },
   "cases": [
     {
-      "woningtype": "tussenwoning",
-      "label_huidig": "D",
-      "ep2_huidig": 280,
-      "maatregelen": ["dakisolatie", "hrpp_glas", "hybride_warmtepomp", "pv_zonnepanelen"],
-      "label_nieuw": "B",
-      "ep2_nieuw": 180
+      "case_id": "REF001",
+      "source_type": "indicatieve_referentiecase",
+      "confidence": 0.72,
+      "scenario_type": "gebalanceerd",
+      "woning": {
+        "woningtype": "tussenwoning",
+        "bouwperiode": "1970-1990",
+        "label_huidig": "D",
+        "ep2_huidig": 280.0
+      },
+      "maatregelen": [
+        "dakisolatie",
+        "hrpp_glas",
+        "hybride_warmtepomp",
+        "zonnepanelen_pv"
+      ],
+      "resultaat": {
+        "label_nieuw": "B",
+        "ep2_nieuw": 180.0
+      },
+      "pattern_summary": "Een tussenwoning met een matige schil en fossiele verwarming kan met een combinatie van schilverbetering, hybride warmtepomp en PV doorgaans twee labelstappen verbeteren.",
+      "why_relevant": "Bruikbaar als referentie voor grondgebonden woningen met middelmatig startlabel waarbij een all-electric route nog niet direct logisch is.",
+      "assumptions": [
+        "De woning heeft voldoende dakpotentieel voor zonnepanelen.",
+        "De bestaande afgifte en schil zijn voldoende voor een hybride warmtepomp als tussenstap."
+      ],
+      "uncertainties": [
+        "Werkelijke EP2-impact hangt af van oppervlaktes, installatiedetails en ventilatiesysteem."
+      ]
     },
     {
-      "woningtype": "vrijstaand",
-      "label_huidig": "E",
-      "ep2_huidig": 340,
-      "maatregelen": ["dakisolatie", "gevelisolatie", "lage_temp_afgifte", "all_electric_wp", "pv_zonnepanelen"],
-      "label_nieuw": "A",
-      "ep2_nieuw": 140
+      "case_id": "REF002",
+      "source_type": "indicatieve_referentiecase",
+      "confidence": 0.70,
+      "scenario_type": "schil_eerst",
+      "woning": {
+        "woningtype": "vrijstaand",
+        "bouwperiode": "1960-1985",
+        "label_huidig": "E",
+        "ep2_huidig": 340.0
+      },
+      "maatregelen": [
+        "dakisolatie",
+        "gevelisolatie",
+        "lage_temperatuur_afgiftesysteem",
+        "all_electric_warmtepomp",
+        "zonnepanelen_pv"
+      ],
+      "resultaat": {
+        "label_nieuw": "A",
+        "ep2_nieuw": 140.0
+      },
+      "pattern_summary": "Een vrijstaande woning met een zwakkere schil vraagt vaak eerst substantiële schilverbetering en afgifte-aanpassing voordat een all-electric warmtepomp logisch wordt.",
+      "why_relevant": "Bruikbaar als referentie voor zwaardere verduurzamingsscenario’s waarin eerst stap 1 van Trias wordt versterkt en daarna elektrificatie volgt.",
+      "assumptions": [
+        "De woning is na schilverbetering voldoende geschikt voor all-electric verwarming.",
+        "Er is voldoende elektrische capaciteit en dakpotentieel aanwezig."
+      ],
+      "uncertainties": [
+        "Vrijstaande woningen kunnen sterk variëren in geometrie, glasoppervlak en infiltratie."
+      ]
+    },
+    {
+      "case_id": "REF003",
+      "source_type": "indicatieve_referentiecase",
+      "confidence": 0.68,
+      "scenario_type": "min_labelsprong",
+      "woning": {
+        "woningtype": "hoekwoning",
+        "bouwperiode": "1980-2000",
+        "label_huidig": "C",
+        "ep2_huidig": 225.0
+      },
+      "maatregelen": [
+        "zonnepanelen_pv",
+        "verbeterde_verwarmingsregeling",
+        "waterzijdig_inregelen"
+      ],
+      "resultaat": {
+        "label_nieuw": "B",
+        "ep2_nieuw": 185.0
+      },
+      "pattern_summary": "Bij een woning met al redelijke schil kan een combinatie van beperkte systeemoptimalisatie en PV voldoende zijn voor een relatief goedkope labelsprong.",
+      "why_relevant": "Bruikbaar voor scenario’s waarbij het doel-label met relatief beperkte maatregelen gehaald kan worden.",
+      "assumptions": [
+        "De woning heeft al een redelijk niveau van isolatie.",
+        "Er is voldoende ruimte voor een PV-uitbreiding."
+      ],
+      "uncertainties": [
+        "Zonder exacte schil- en installatiegegevens blijft het een indicatief patroon."
+      ]
     }
   ]
 }
