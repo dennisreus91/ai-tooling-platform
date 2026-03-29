@@ -1,215 +1,694 @@
 {
+  "schema_version": "1.0",
+  "purpose": "Tolerante extractieregels voor het mappen van variërende Vabi-rapporten naar het interne woningmodel van de energielabel-tool. Dit bestand is bedoeld als LLM-gestuurde mappinghandleiding en niet als rigide cell- of kolommapping.",
   "methodology": {
     "primary_standard": "NTA 8800",
     "inspection_guidance": "ISSO 82.1",
     "primary_indicator": "EP2_kWh_per_m2_year"
   },
+  "global_extraction_rules": {
+    "mapping_mode": "llm_guided_flexible_normalization",
+    "allow_missing_fields": true,
+    "never_fail_on_missing_content_fields": true,
+    "fail_only_on_technical_parse_errors": true,
+    "always_record_uncertainties": true,
+    "always_record_assumptions": true,
+    "normalize_units": true,
+    "normalize_decimal_separator": true,
+    "prefer_explicit_source_values_over_inference": true,
+    "allow_multiple_sections_with_same_semantics": true,
+    "use_assumption_rules_when_needed": true
+  },
+  "normalization_guidance": {
+    "heating_types": {
+      "all-electric": "all_electric_warmtepomp",
+      "all electric": "all_electric_warmtepomp",
+      "all-electric warmtepomp": "all_electric_warmtepomp",
+      "elektrische warmtepomp": "all_electric_warmtepomp",
+      "hybride": "hybride_warmtepomp",
+      "hybride warmtepomp": "hybride_warmtepomp",
+      "hr-ketel": "hr_ketel",
+      "hr ketel": "hr_ketel",
+      "cv-ketel": "hr_ketel",
+      "cv ketel": "hr_ketel",
+      "warmtepomp": "warmtepomp_onbekend_type"
+    },
+    "ventilation_types": {
+      "balans": "balansventilatie",
+      "wtw": "balans_wtw",
+      "balansventilatie": "balansventilatie",
+      "balansventilatie met wtw": "balans_wtw",
+      "mechanisch": "mechanische_ventilatie",
+      "natuurlijk": "natuurlijke_ventilatie"
+    },
+    "boolean_values": {
+      "ja": true,
+      "nee": false,
+      "yes": true,
+      "no": false,
+      "true": true,
+      "false": false,
+      "aanwezig": true,
+      "niet aanwezig": false
+    }
+  },
   "rules": [
     {
+      "id": "R01",
       "target_field": "prestatie.current_ep2_kwh_m2",
-      "possible_labels": ["EP2", "Primair fossiel energiegebruik", "kWh/m².yr", "kWh/m2 per jaar"],
-      "section_hints": ["Samenvatting", "Energieprestatie", "Resultaten"],
-      "pattern_hints": ["EP2\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "EP2",
+        "EP 2",
+        "Primair fossiel energiegebruik",
+        "Primair fossiel energieverbruik",
+        "kWh/m².yr",
+        "kWh/m².jr",
+        "kWh/m2 per jaar"
+      ],
+      "section_hints": [
+        "Samenvatting",
+        "Energieprestatie",
+        "Resultaten",
+        "Prestatie-indicatoren"
+      ],
+      "pattern_hints": [
+        "EP\\s*2\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)",
+        "primair\\s+fossiel.*?([0-9]+[\\.,]?[0-9]*)"
+      ],
       "value_type": "float",
-      "required_for": ["label_mapping", "scenario_calculation"],
-      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+      "required_for": [
+        "label_mapping",
+        "scenario_calculation"
+      ],
+      "multi_match_strategy": "prefer_explicit_summary_value",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain",
+      "output_confidence_required": true
     },
     {
+      "id": "R02",
       "target_field": "prestatie.current_label",
-      "possible_labels": ["Energielabel", "Labelklasse", "Label"],
-      "section_hints": ["Samenvatting", "Energieprestatie"],
-      "pattern_hints": ["label\\s*[:=]\\s*([A-G][+]{0,4})"],
+      "possible_labels": [
+        "Energielabel",
+        "Labelklasse",
+        "Label",
+        "Energieklasse"
+      ],
+      "section_hints": [
+        "Samenvatting",
+        "Energieprestatie",
+        "Resultaten"
+      ],
+      "pattern_hints": [
+        "label\\s*[:=]?\\s*([A-G][+]{0,4})"
+      ],
       "value_type": "string",
-      "required_for": ["reporting"],
+      "required_for": [
+        "reporting"
+      ],
+      "multi_match_strategy": "prefer_explicit_summary_value",
       "fallback_behavior": "derive_from_ep2_if_missing"
     },
     {
+      "id": "R03",
+      "target_field": "woning.type",
+      "possible_labels": [
+        "Woningtype",
+        "Type woning",
+        "Gebouwtype",
+        "Objecttype"
+      ],
+      "section_hints": [
+        "Objectgegevens",
+        "Woningkenmerken",
+        "Algemeen"
+      ],
+      "pattern_hints": [
+        "(tussenwoning|hoekwoning|vrijstaand|2-onder-1-kap|appartement|maisonnette|portiekwoning)"
+      ],
+      "value_type": "string",
+      "required_for": [
+        "scenario_context",
+        "reporting"
+      ],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "id": "R04",
       "target_field": "woning.bouwjaar",
-      "possible_labels": ["Bouwjaar", "Bouwperiode"],
-      "section_hints": ["Objectgegevens", "Woningkenmerken"],
-      "pattern_hints": ["(19|20)\\d{2}"],
+      "possible_labels": [
+        "Bouwjaar",
+        "Bouwperiode"
+      ],
+      "section_hints": [
+        "Objectgegevens",
+        "Woningkenmerken",
+        "Algemeen"
+      ],
+      "pattern_hints": [
+        "(19|20)\\d{2}"
+      ],
       "value_type": "int",
-      "required_for": ["measure_relevance"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_relevance"
+      ],
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R05",
+      "target_field": "woning.gebruiksoppervlakte_m2",
+      "possible_labels": [
+        "Gebruiksoppervlakte",
+        "Ag",
+        "Gebruiksvloeroppervlakte",
+        "Oppervlakte"
+      ],
+      "section_hints": [
+        "Samenvatting",
+        "Objectgegevens",
+        "Gebruiksoppervlakte",
+        "Resultaten"
+      ],
+      "pattern_hints": [
+        "Ag\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)",
+        "gebruiksoppervlakte.*?([0-9]+[\\.,]?[0-9]*)"
+      ],
+      "value_type": "float",
+      "required_for": [
+        "reporting",
+        "scenario_context"
+      ],
+      "multi_match_strategy": "prefer_ag_or_summary_value",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+    },
+    {
+      "id": "R06",
       "target_field": "bouwdelen.dak.rc",
-      "possible_labels": ["Dak Rc", "Rc dak", "Warmteweerstand dak"],
-      "section_hints": ["Schil", "Constructies"],
-      "pattern_hints": ["dak.*rc\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "Dak Rc",
+        "Rc dak",
+        "Warmteweerstand dak",
+        "Dakisolatie"
+      ],
+      "section_hints": [
+        "Schil",
+        "Constructies",
+        "Dak",
+        "Daken"
+      ],
+      "pattern_hints": [
+        "dak.*rc\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)",
+        "Rc\\s*=\\s*([0-9]+[\\.,]?[0-9]*).*dak"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_matching"
+      ],
+      "multi_match_strategy": "prefer_worst_relevant_thermal_shell_value",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R07",
       "target_field": "bouwdelen.gevel.rc",
-      "possible_labels": ["Gevel Rc", "Rc gevel", "Warmteweerstand gevel"],
-      "section_hints": ["Schil", "Constructies"],
-      "pattern_hints": ["gevel.*rc\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "Gevel Rc",
+        "Rc gevel",
+        "Warmteweerstand gevel",
+        "Spouwmuurisolatie"
+      ],
+      "section_hints": [
+        "Schil",
+        "Constructies",
+        "Gevel",
+        "Gevels"
+      ],
+      "pattern_hints": [
+        "gevel.*rc\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)",
+        "Rc\\s*=\\s*([0-9]+[\\.,]?[0-9]*).*gevel"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_matching"
+      ],
+      "multi_match_strategy": "prefer_worst_relevant_thermal_shell_value",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R08",
       "target_field": "bouwdelen.vloer.rc",
-      "possible_labels": ["Vloer Rc", "Rc vloer", "Warmteweerstand vloer"],
-      "section_hints": ["Schil", "Constructies"],
-      "pattern_hints": ["vloer.*rc\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "Vloer Rc",
+        "Rc vloer",
+        "Warmteweerstand vloer",
+        "Bodemisolatie",
+        "Vloerisolatie"
+      ],
+      "section_hints": [
+        "Schil",
+        "Constructies",
+        "Vloer",
+        "Vloeren"
+      ],
+      "pattern_hints": [
+        "vloer.*rc\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)",
+        "Rc\\s*=\\s*([0-9]+[\\.,]?[0-9]*).*vloer"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_matching"
+      ],
+      "multi_match_strategy": "prefer_worst_relevant_thermal_shell_value",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R09",
       "target_field": "bouwdelen.ramen.u_waarde",
-      "possible_labels": ["U-waarde glas", "Ramen U", "Beglazing U"],
-      "section_hints": ["Glas", "Schil"],
-      "pattern_hints": ["u-?waarde.*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "U-waarde glas",
+        "Ramen U",
+        "Beglazing U",
+        "U glas",
+        "Glas U"
+      ],
+      "section_hints": [
+        "Glas",
+        "Schil",
+        "Ramen",
+        "Kozijnen en ramen"
+      ],
+      "pattern_hints": [
+        "u-?waarde.*?([0-9]+[\\.,]?[0-9]*)",
+        "U\\s*=\\s*([0-9]+[\\.,]?[0-9]*)"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
+      "multi_match_strategy": "prefer_representative_or_worst_relevant_window_value",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+    },
+    {
+      "id": "R10",
+      "target_field": "bouwdelen.ramen.glastype",
+      "possible_labels": [
+        "Glastype",
+        "Beglazing",
+        "Type glas"
+      ],
+      "section_hints": [
+        "Glas",
+        "Ramen",
+        "Schil"
+      ],
+      "pattern_hints": [
+        "(enkel glas|dubbel glas|hr\\+\\+|hr\\+\\+\\+|triple)"
+      ],
+      "value_type": "string",
+      "required_for": [
+        "measure_matching"
+      ],
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R11",
       "target_field": "bouwdelen.ramen.kozijn_isolerend",
-      "possible_labels": ["Isolerend kozijn", "Kozijnkwaliteit", "Geisoleerd kozijn"],
-      "section_hints": ["Glas", "Ramen en deuren"],
-      "pattern_hints": ["kozijn.*(isolerend|geisoleerd|ja|nee)"],
+      "possible_labels": [
+        "Isolerend kozijn",
+        "Kozijnkwaliteit",
+        "Geisoleerd kozijn",
+        "Kozijn isolerend"
+      ],
+      "section_hints": [
+        "Glas",
+        "Ramen en deuren",
+        "Kozijnen"
+      ],
+      "pattern_hints": [
+        "kozijn.*(isolerend|geisoleerd|ja|nee)"
+      ],
       "value_type": "bool",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R12",
       "target_field": "bouwdelen.luchtdichting.qv10",
-      "possible_labels": ["Qv10", "Luchtdoorlatendheid", "Kierdichting"],
-      "section_hints": ["Infiltratie", "Ventilatie"],
-      "pattern_hints": ["qv10\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "Qv10",
+        "Luchtdoorlatendheid",
+        "Kierdichting",
+        "Luchtdichtheid"
+      ],
+      "section_hints": [
+        "Infiltratie",
+        "Ventilatie",
+        "Schil"
+      ],
+      "pattern_hints": [
+        "qv10\\s*[:=]?\\s*([0-9]+[\\.,]?[0-9]*)"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_matching"
+      ],
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R13",
       "target_field": "installaties.verwarming.type",
-      "possible_labels": ["Type verwarming", "Opwekker ruimteverwarming", "Installatie verwarming"],
-      "section_hints": ["Installaties", "Verwarming"],
-      "pattern_hints": ["(all-electric|hybride|hr-ketel|warmtepomp)"],
+      "possible_labels": [
+        "Type verwarming",
+        "Opwekker ruimteverwarming",
+        "Installatie verwarming",
+        "Verwarmingssysteem"
+      ],
+      "section_hints": [
+        "Installaties",
+        "Verwarming",
+        "Ruimteverwarming"
+      ],
+      "pattern_hints": [
+        "(all-electric|all electric|hybride|hr-ketel|hr ketel|cv-ketel|cv ketel|warmtepomp)"
+      ],
       "value_type": "string",
-      "required_for": ["measure_matching", "scenario_calculation"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_matching",
+        "scenario_calculation"
+      ],
+      "normalization_rules": "apply_heating_types_map",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R14",
       "target_field": "installaties.verwarming.rendement",
-      "possible_labels": ["Rendement verwarming", "Ketelrendement", "OPF verwarming"],
-      "section_hints": ["Installaties", "Verwarming"],
-      "pattern_hints": ["rendement.*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "Rendement verwarming",
+        "Ketelrendement",
+        "OPF verwarming",
+        "Opwekkingsrendement"
+      ],
+      "section_hints": [
+        "Installaties",
+        "Verwarming"
+      ],
+      "pattern_hints": [
+        "rendement.*?([0-9]+[\\.,]?[0-9]*)"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R15",
       "target_field": "installaties.afgifte.max_aanvoer_temp_c",
-      "possible_labels": ["Aanvoertemperatuur", "Max aanvoer", "LT-afgifte"],
-      "section_hints": ["Verwarming", "Afgifte"],
-      "pattern_hints": ["aanvoer.*([0-9]{2})\\s*°?c"],
+      "possible_labels": [
+        "Aanvoertemperatuur",
+        "Max aanvoer",
+        "LT-afgifte",
+        "Wateraanvoertemperatuur"
+      ],
+      "section_hints": [
+        "Verwarming",
+        "Afgifte",
+        "Distributie"
+      ],
+      "pattern_hints": [
+        "aanvoer.*?([0-9]{2})\\s*°?c",
+        "wateraanvoer.*?([0-9]{2})"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R16",
       "target_field": "installaties.regeling.waterzijdig_ingeregeld",
-      "possible_labels": ["Waterzijdig ingeregeld", "Ingeregeld cv"],
-      "section_hints": ["Regeling", "Verwarming"],
-      "pattern_hints": ["waterzijdig.*(ja|nee)"],
+      "possible_labels": [
+        "Waterzijdig ingeregeld",
+        "Ingeregeld cv",
+        "Waterzijdig inregelen"
+      ],
+      "section_hints": [
+        "Regeling",
+        "Verwarming",
+        "Distributie"
+      ],
+      "pattern_hints": [
+        "waterzijdig.*?(ja|nee)"
+      ],
       "value_type": "bool",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
+      "normalization_rules": "apply_boolean_values_map",
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R17",
       "target_field": "installaties.regeling.klasse",
-      "possible_labels": ["Regelklasse", "Regeling klasse"],
-      "section_hints": ["Regeling", "Verwarming"],
-      "pattern_hints": ["klasse\\s*([1-8])"],
+      "possible_labels": [
+        "Regelklasse",
+        "Regeling klasse",
+        "Klasse regeling"
+      ],
+      "section_hints": [
+        "Regeling",
+        "Verwarming"
+      ],
+      "pattern_hints": [
+        "klasse\\s*([1-8])"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R18",
       "target_field": "installaties.ventilatie.type",
-      "possible_labels": ["Ventilatietype", "Ventilatiesysteem", "WTW"],
-      "section_hints": ["Ventilatie"],
-      "pattern_hints": ["(balans|wtw|mechanisch|natuurlijk)"],
+      "possible_labels": [
+        "Ventilatietype",
+        "Ventilatiesysteem",
+        "WTW",
+        "Type ventilatie"
+      ],
+      "section_hints": [
+        "Ventilatie",
+        "Installaties"
+      ],
+      "pattern_hints": [
+        "(balans|wtw|mechanisch|natuurlijk|balansventilatie)"
+      ],
       "value_type": "string",
-      "required_for": ["measure_matching"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_matching"
+      ],
+      "normalization_rules": "apply_ventilation_types_map",
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R19",
       "target_field": "installaties.ventilatie.vraaggestuurd",
-      "possible_labels": ["Vraaggestuurd", "CO2-sturing"],
-      "section_hints": ["Ventilatie"],
-      "pattern_hints": ["(vraaggestuurd|co2).*(ja|nee)"],
+      "possible_labels": [
+        "Vraaggestuurd",
+        "CO2-sturing",
+        "Vraagsturing ventilatie"
+      ],
+      "section_hints": [
+        "Ventilatie"
+      ],
+      "pattern_hints": [
+        "(vraaggestuurd|co2).*(ja|nee)"
+      ],
       "value_type": "bool",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
+      "normalization_rules": "apply_boolean_values_map",
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R20",
       "target_field": "installaties.ventilatie.inregeling_ok",
-      "possible_labels": ["Inregeling ventilatie", "Ventilatiedebiet ingeregeld"],
-      "section_hints": ["Ventilatie"],
-      "pattern_hints": ["inregeling.*(ja|nee)"],
+      "possible_labels": [
+        "Inregeling ventilatie",
+        "Ventilatiedebiet ingeregeld",
+        "Ventilatie ingeregeld"
+      ],
+      "section_hints": [
+        "Ventilatie"
+      ],
+      "pattern_hints": [
+        "inregeling.*?(ja|nee)"
+      ],
       "value_type": "bool",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
+      "normalization_rules": "apply_boolean_values_map",
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R21",
       "target_field": "installaties.pv.kwp",
-      "possible_labels": ["PV vermogen", "kWp", "Zonnepanelen"],
-      "section_hints": ["Opwek", "Duurzame energie"],
-      "pattern_hints": ["pv.*([0-9]+[\\.,]?[0-9]*)\\s*kwp"],
+      "possible_labels": [
+        "PV vermogen",
+        "kWp",
+        "Zonnepanelen",
+        "PV opgesteld vermogen"
+      ],
+      "section_hints": [
+        "Opwek",
+        "Duurzame energie",
+        "PV"
+      ],
+      "pattern_hints": [
+        "pv.*?([0-9]+[\\.,]?[0-9]*)\\s*kwp",
+        "([0-9]+[\\.,]?[0-9]*)\\s*kwp"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching", "scenario_calculation"],
-      "fallback_behavior": "null_allowed"
+      "required_for": [
+        "measure_matching",
+        "scenario_calculation"
+      ],
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R22",
       "target_field": "installaties.pv.max_extra_kwp",
-      "possible_labels": ["Extra PV potentieel", "Dakpotentieel pv", "Beschikbaar dakoppervlak pv"],
-      "section_hints": ["Opwek", "Duurzame energie"],
-      "pattern_hints": ["extra.*pv.*([0-9]+[\\.,]?[0-9]*)\\s*kwp"],
+      "possible_labels": [
+        "Extra PV potentieel",
+        "Dakpotentieel pv",
+        "Beschikbaar dakoppervlak pv"
+      ],
+      "section_hints": [
+        "Opwek",
+        "Duurzame energie",
+        "PV"
+      ],
+      "pattern_hints": [
+        "extra.*pv.*?([0-9]+[\\.,]?[0-9]*)\\s*kwp"
+      ],
       "value_type": "float",
-      "required_for": ["capacity_checks"],
+      "required_for": [
+        "capacity_checks"
+      ],
       "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R23",
       "target_field": "installaties.elektra.max_aansluitwaarde_kw",
-      "possible_labels": ["Aansluitwaarde elektra", "Netaansluiting kW", "Hoofdzekering"],
-      "section_hints": ["Elektra", "Installaties"],
-      "pattern_hints": ["aansluitwaarde.*([0-9]+[\\.,]?[0-9]*)\\s*kw"],
+      "possible_labels": [
+        "Aansluitwaarde elektra",
+        "Netaansluiting kW",
+        "Hoofdzekering",
+        "Aansluitcapaciteit"
+      ],
+      "section_hints": [
+        "Elektra",
+        "Installaties",
+        "Algemeen"
+      ],
+      "pattern_hints": [
+        "aansluitwaarde.*?([0-9]+[\\.,]?[0-9]*)\\s*kw",
+        "([0-9]+[\\.,]?[0-9]*)\\s*kw.*aansluit"
+      ],
       "value_type": "float",
-      "required_for": ["capacity_checks"],
+      "required_for": [
+        "capacity_checks"
+      ],
       "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
     },
     {
+      "id": "R24",
+      "target_field": "installaties.tapwater.type",
+      "possible_labels": [
+        "Type tapwater",
+        "Tapwatersysteem",
+        "Warmtapwatersysteem"
+      ],
+      "section_hints": [
+        "Tapwater",
+        "Installaties"
+      ],
+      "pattern_hints": [
+        "(combiketel|boiler|warmtepompboiler|zonneboiler)"
+      ],
+      "value_type": "string",
+      "required_for": [
+        "scenario_context",
+        "measure_matching"
+      ],
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+    },
+    {
+      "id": "R25",
       "target_field": "installaties.tapwater.zonneboiler",
-      "possible_labels": ["Zonneboiler", "Solar boiler"],
-      "section_hints": ["Tapwater", "Duurzame energie"],
-      "pattern_hints": ["zonneboiler.*(ja|nee)"],
+      "possible_labels": [
+        "Zonneboiler",
+        "Solar boiler"
+      ],
+      "section_hints": [
+        "Tapwater",
+        "Duurzame energie"
+      ],
+      "pattern_hints": [
+        "zonneboiler.*?(ja|nee)"
+      ],
       "value_type": "bool",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
+      "normalization_rules": "apply_boolean_values_map",
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R26",
       "target_field": "installaties.tapwater.douche_wtw",
-      "possible_labels": ["Douche-WTW", "Douche warmtewisselaar"],
-      "section_hints": ["Tapwater", "Duurzame energie"],
-      "pattern_hints": ["douche.*wtw.*(ja|nee)"],
+      "possible_labels": [
+        "Douche-WTW",
+        "Douche warmtewisselaar",
+        "DWTW"
+      ],
+      "section_hints": [
+        "Tapwater",
+        "Duurzame energie"
+      ],
+      "pattern_hints": [
+        "douche.*wtw.*?(ja|nee)"
+      ],
       "value_type": "bool",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
+      "normalization_rules": "apply_boolean_values_map",
       "fallback_behavior": "null_allowed"
     },
     {
+      "id": "R27",
       "target_field": "installaties.tapwater.rendement",
-      "possible_labels": ["Rendement tapwater", "OPF tapwater"],
-      "section_hints": ["Tapwater", "Installaties"],
-      "pattern_hints": ["tapwater.*rendement.*([0-9]+[\\.,]?[0-9]*)"],
+      "possible_labels": [
+        "Rendement tapwater",
+        "OPF tapwater",
+        "Tapwater rendement"
+      ],
+      "section_hints": [
+        "Tapwater",
+        "Installaties"
+      ],
+      "pattern_hints": [
+        "tapwater.*rendement.*?([0-9]+[\\.,]?[0-9]*)"
+      ],
       "value_type": "float",
-      "required_for": ["measure_matching"],
+      "required_for": [
+        "measure_matching"
+      ],
       "fallback_behavior": "null_allowed"
     }
   ]
