@@ -1,24 +1,31 @@
 from __future__ import annotations
 
-from schemas import MeasureImpact, ScenarioDefinition
-from services.config_service import load_json
+from abc import ABC, abstractmethod
+
+from schemas import ScenarioDefinition, ScenarioResult
+from validators import label_from_ep2
 
 
-def build_scenarios(impacts: list[MeasureImpact]) -> list[ScenarioDefinition]:
-    templates = load_json("data/scenario_templates.json")["templates"]
-    ordered = [impact.measure_id for impact in sorted(impacts, key=lambda x: x.estimated_investment_eur)]
-    scenarios: list[ScenarioDefinition] = []
+class ScenarioCalculator(ABC):
+    @abstractmethod
+    def calculate(self, scenario: ScenarioDefinition, current_ep2: float) -> ScenarioResult:
+        raise NotImplementedError
 
-    for template in templates:
-        max_measures = int(template.get("max_measures", 5))
-        measure_ids = ordered[:max_measures]
-        scenarios.append(
-            ScenarioDefinition(
-                scenario_id=template["id"],
-                scenario_name=template["id"],
-                measure_ids=measure_ids,
-                ordered_measure_ids=measure_ids,
-            )
+
+class GeminiScenarioCalculator(ScenarioCalculator):
+    def calculate(self, scenario: ScenarioDefinition, current_ep2: float) -> ScenarioResult:
+        reduction = 14.0 * len(scenario.measure_ids)
+        new_ep2 = max(30.0, current_ep2 - reduction)
+        investment = 2200.0 * len(scenario.measure_ids)
+        return ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            scenario_name=scenario.scenario_name,
+            expected_ep2_kwh_m2=new_ep2,
+            expected_label=label_from_ep2(new_ep2),
+            selected_measures=scenario.ordered_measure_ids,
+            total_investment_eur=investment,
+            monthly_savings_eur=45.0 * len(scenario.measure_ids),
+            expected_property_value_gain_eur=2000.0 * len(scenario.measure_ids),
+            assumptions=["POC-indicatie via vervangbare calculatorlaag (Gemini placeholder)."],
+            uncertainties=["Geen officiële NTA-rekenkern gekoppeld."],
         )
-
-    return scenarios
