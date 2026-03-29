@@ -1,19 +1,120 @@
 {
+  "schema_version": "1.0",
+  "purpose": "Leidende Trias Energetica-structuur voor de energielabel-tool. Dit bestand bepaalt de voorkeursvolgorde van maatregelen bij scenario-opbouw en selectie. Alleen labelrelevante maatregelen binnen de POC-scope mogen worden meegenomen.",
+  "is_leading_for_scenarios": true,
+  "label_relevant_measures_only": true,
+  "default_priority_order": [1, 2, 3],
   "steps": [
     {
       "step": 1,
       "name": "beperk_energievraag",
-      "categories": ["schil", "glas", "luchtdichting", "afgifte"]
+      "description": "Verlaag eerst de energievraag van de woning door verbetering van de schil en andere maatregelen die direct de warmtebehoefte of transmissieverliezen verlagen.",
+      "categories": [
+        "schil",
+        "luchtdichting",
+        "afgifte"
+      ],
+      "included_measure_examples": [
+        "dakisolatie",
+        "gevelisolatie",
+        "vloerisolatie",
+        "hrpp_glas",
+        "triple_glas",
+        "kozijnvervanging_isolerend",
+        "kierdichting_en_luchtdichting",
+        "lage_temperatuur_afgiftesysteem"
+      ],
+      "selection_rules": [
+        "geef voorrang aan maatregelen die de warmtebehoefte direct verlagen",
+        "verbeter eerst duidelijk ondermaatse schilonderdelen",
+        "gebruik enabling measures zoals lage temperatuur afgifte als voorbereiding op latere duurzame installaties"
+      ],
+      "stop_rules": [
+        "ga naar stap 2 als aanvullende stap 1-maatregelen het doel-label niet logisch of kostenefficiënt dichterbij brengen",
+        "stap 1 hoeft niet volledig uitgeput te zijn voordat stap 2 start, maar afwijking moet gemotiveerd worden"
+      ]
     },
     {
       "step": 2,
       "name": "gebruik_duurzame_energie",
-      "categories": ["duurzame_opwek", "duurzame_installatie"]
+      "description": "Vul de resterende energievraag zoveel mogelijk in met duurzame installaties en hernieuwbare energiebronnen.",
+      "categories": [
+        "duurzame_installatie",
+        "duurzame_opwek"
+      ],
+      "included_measure_examples": [
+        "all_electric_warmtepomp",
+        "hybride_warmtepomp",
+        "zonnepanelen_pv",
+        "zonneboiler",
+        "douche_wtw"
+      ],
+      "selection_rules": [
+        "voeg duurzame maatregelen toe nadat relevante stap 1-maatregelen zijn overwogen",
+        "kies alleen voor zware elektrificatie als woning en afgiftesysteem daar logisch geschikt voor zijn",
+        "gebruik hybride oplossingen als tussenstap wanneer all-electric nog niet logisch is"
+      ],
+      "stop_rules": [
+        "ga naar stap 3 als stap 2 onvoldoende is om het doel-label logisch of betaalbaar te halen",
+        "stap 2 mag worden beperkt als capaciteits- of toepasbaarheidsregels verdere duurzame uitbreiding blokkeren"
+      ]
     },
     {
       "step": 3,
       "name": "efficient_fossiel_restant",
-      "categories": ["efficient_fossiel", "regeling", "ventilatie"]
+      "description": "Optimaliseer de resterende fossiele energievraag alleen als laatste stap, nadat stap 1 en 2 onvoldoende of niet logisch blijken.",
+      "categories": [
+        "efficient_fossiel",
+        "regeling",
+        "ventilatie"
+      ],
+      "included_measure_examples": [
+        "hr_ketel_vervanging",
+        "waterzijdig_inregelen",
+        "verbeterde_verwarmingsregeling",
+        "balansventilatie_wtw",
+        "vraaggestuurde_ventilatie",
+        "ventilatie_optimalisatie",
+        "warmtapwateropwekker_optimaliseren"
+      ],
+      "selection_rules": [
+        "gebruik stap 3 als restoptimalisatie of fallbackroute",
+        "kies fossiele optimalisatie niet als primaire route wanneer een logische stap 1 of stap 2 oplossing beschikbaar is",
+        "ventilatiemaatregelen in stap 3 zijn vooral systeemoptimalisaties; luchtdichtheidsmaatregelen blijven in stap 1"
+      ],
+      "stop_rules": [
+        "stop zodra het doel-label is gehaald of de best plausibele eindsituatie is bereikt"
+      ]
     }
+  ],
+  "global_rules": [
+    "scenario-opbouw moet standaard de volgorde stap 1 -> stap 2 -> stap 3 volgen",
+    "afwijking van deze volgorde is alleen toegestaan als dit expliciet gemotiveerd en als logisch gemarkeerd wordt",
+    "alleen maatregelen uit de maatregelenbibliotheek mogen gebruikt worden",
+    "alleen maatregelen met label_relevant=true en scenario_allowed=true mogen meegenomen worden",
+    "dependencies, mutual exclusions en capacity logic uit maatregel_relations.json en maatregelenbibliotheek.json moeten gerespecteerd worden"
+  ],
+  "scenario_guidance": {
+    "MIN_LABELSPRONG": {
+      "preferred_steps": [1, 2, 3],
+      "strategy": "gebruik de kleinste logische maatregelset voor minimaal één labelsprong"
+    },
+    "GOEDKOOPSTE_DOELLABEL": {
+      "preferred_steps": [1, 2, 3],
+      "strategy": "haal het doel-label tegen de laagste logische investering"
+    },
+    "GEBALANCEERD": {
+      "preferred_steps": [1, 2, 3],
+      "strategy": "bouw een evenwichtig scenario met logische combinatie van schil, installatie en opwek"
+    },
+    "SCHIL_EERST": {
+      "preferred_steps": [1, 1, 1, 2, 3],
+      "strategy": "geef dominant voorrang aan stap 1-maatregelen voordat stap 2 en 3 toegevoegd worden"
+    }
+  },
+  "notes": [
+    "Trias Energetica is leidend voor scenario-opbouw, maar niet absoluut star; beperkte afwijking is toegestaan als deze technisch en economisch beter uitlegbaar is.",
+    "Binnen deze tool geldt Trias alleen binnen de set van officieel labelrelevante maatregelen.",
+    "Dit bestand stuurt scenario-opbouw en selectie, maar vervangt niet de technische afhankelijkheden uit maatregel_relations.json."
   ]
 }
