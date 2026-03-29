@@ -1,17 +1,177 @@
 {
-  "dependencies": [
-    {"measure_id": "triple_glas", "requires": ["kozijnvervanging_isolerend"]},
-    {"measure_id": "all_electric_wp", "requires": ["lage_temp_afgifte"]},
-    {"measure_id": "balansventilatie_wtw", "requires": ["kierdichting"]}
+  "schema_version": "1.0",
+  "purpose": "Deterministische relaties tussen maatregelen voor de energielabel-tool. Dit bestand stuurt scenario-opbouw, technische plausibiliteit, volgorde en uitsluitingen. De measure_id-waarden moeten exact overeenkomen met de ids in maatregelenbibliotheek.json.",
+  "id_alignment_policy": {
+    "must_match_maatregelenbibliotheek_ids_exactly": true,
+    "case_sensitive": true
+  },
+  "dependency_rules": [
+    {
+      "id": "D01",
+      "measure_id": "triple_glas",
+      "requires": ["kozijnvervanging_isolerend"],
+      "dependency_type": "conditional",
+      "severity": "medium",
+      "reason": "Triple glas vraagt in veel gevallen om geschikte of vernieuwde kozijnen. Zonder toets op kozijnkwaliteit is toepassing mogelijk technisch of financieel minder logisch.",
+      "enforcement": "prefer_together_or_flag_uncertain"
+    },
+    {
+      "id": "D02",
+      "measure_id": "all_electric_warmtepomp",
+      "requires": ["lage_temperatuur_afgiftesysteem"],
+      "dependency_type": "hard",
+      "severity": "high",
+      "reason": "Een all-electric warmtepomp is in de POC alleen logisch wanneer een passend lage temperatuur afgiftesysteem aanwezig of gepland is.",
+      "enforcement": "do_not_allow_without_required_measure"
+    },
+    {
+      "id": "D03",
+      "measure_id": "balansventilatie_wtw",
+      "requires": ["kierdichting_en_luchtdichting"],
+      "dependency_type": "conditional",
+      "severity": "medium",
+      "reason": "Balansventilatie met WTW presteert logischer in een voldoende kierdichte schil. Zonder luchtdichting moet dit als onzeker of minder logisch worden behandeld.",
+      "enforcement": "prefer_together_or_flag_uncertain"
+    },
+    {
+      "id": "D04",
+      "measure_id": "all_electric_warmtepomp",
+      "requires_any_of": [
+        ["dakisolatie", "gevelisolatie", "vloerisolatie", "hrpp_glas", "triple_glas"]
+      ],
+      "dependency_type": "conditional",
+      "severity": "high",
+      "reason": "Voor een all-electric warmtepomp moet de woning in de POC voldoende richting een verbeterde schil gaan. Zonder relevante schilmaatregelen is deze route meestal niet logisch.",
+      "enforcement": "flag_as_implausible_if_no_shell_improvement"
+    },
+    {
+      "id": "D05",
+      "measure_id": "hybride_warmtepomp",
+      "requires_any_of": [
+        ["dakisolatie", "gevelisolatie", "vloerisolatie", "hrpp_glas", "triple_glas"]
+      ],
+      "dependency_type": "soft",
+      "severity": "medium",
+      "reason": "Een hybride warmtepomp kan ook als tussenstap, maar wordt logischer en effectiever wanneer minimaal een deel van de schil is verbeterd.",
+      "enforcement": "allow_but_reduce_priority_if_no_shell_improvement"
+    }
   ],
-  "mutual_exclusions": [
-    ["all_electric_wp", "hybride_warmtepomp"],
-    ["all_electric_wp", "hr_ketel_vervanging"],
-    ["hrpp_glas", "triple_glas"]
+  "mutual_exclusion_rules": [
+    {
+      "id": "X01",
+      "measures": ["all_electric_warmtepomp", "hybride_warmtepomp"],
+      "reason": "De POC behandelt dit als alternatieve verwarmingsroutes en niet als gelijktijdig scenario.",
+      "enforcement": "do_not_allow_together"
+    },
+    {
+      "id": "X02",
+      "measures": ["all_electric_warmtepomp", "hr_ketel_vervanging"],
+      "reason": "Een all-electric warmtepomp sluit een fallbackscenario met nieuwe HR-ketel uit als eindoplossing binnen hetzelfde scenario.",
+      "enforcement": "do_not_allow_together"
+    },
+    {
+      "id": "X03",
+      "measures": ["hrpp_glas", "triple_glas"],
+      "reason": "HR++ en triple glas zijn alternatieve glasmaatregelen voor hetzelfde bouwdeel en mogen in één scenario niet dubbel worden toegepast.",
+      "enforcement": "do_not_allow_together"
+    }
   ],
   "ordering_rules": [
-    {"before": "dakisolatie", "after": "all_electric_wp"},
-    {"before": "gevelisolatie", "after": "all_electric_wp"},
-    {"before": "kierdichting", "after": "balansventilatie_wtw"}
-  ]
+    {
+      "id": "O01",
+      "before": "dakisolatie",
+      "after": "all_electric_warmtepomp",
+      "reason": "Eerst energievraag beperken, daarna zware installatieverduurzaming."
+    },
+    {
+      "id": "O02",
+      "before": "gevelisolatie",
+      "after": "all_electric_warmtepomp",
+      "reason": "Gevelisolatie valt onder Trias-stap 1 en moet voor installatie-upgrades worden overwogen."
+    },
+    {
+      "id": "O03",
+      "before": "vloerisolatie",
+      "after": "all_electric_warmtepomp",
+      "reason": "Vloerisolatie hoort bij schilverbetering en gaat vooraf aan all-electric scenario’s."
+    },
+    {
+      "id": "O04",
+      "before": "hrpp_glas",
+      "after": "all_electric_warmtepomp",
+      "reason": "Verbetering van glasprestatie gaat in logische volgorde vooraf aan zware elektrificatie."
+    },
+    {
+      "id": "O05",
+      "before": "triple_glas",
+      "after": "all_electric_warmtepomp",
+      "reason": "Verbetering van glasprestatie gaat in logische volgorde vooraf aan zware elektrificatie."
+    },
+    {
+      "id": "O06",
+      "before": "kierdichting_en_luchtdichting",
+      "after": "balansventilatie_wtw",
+      "reason": "Een kierdichte schil is een logische voorwaarde of voorbereidende maatregel voor balansventilatie met WTW."
+    },
+    {
+      "id": "O07",
+      "before": "lage_temperatuur_afgiftesysteem",
+      "after": "all_electric_warmtepomp",
+      "reason": "Afgiftesysteem moet logisch aansluiten op het gekozen warmtepompscenario."
+    },
+    {
+      "id": "O08",
+      "before": "waterzijdig_inregelen",
+      "after": "hybride_warmtepomp",
+      "reason": "Optimalisatie van het afgifte- en distributiesysteem ondersteunt efficiëntere werking van een warmtepomp."
+    },
+    {
+      "id": "O09",
+      "before": "verbeterde_verwarmingsregeling",
+      "after": "hybride_warmtepomp",
+      "reason": "Een verbeterde regeling ondersteunt de systeemprestatie en hoort logisch voor of gelijktijdig met installatieverduurzaming te worden meegenomen."
+    }
+  ],
+  "trias_ordering_rules": [
+    {
+      "id": "T01",
+      "step_1_categories": ["schil", "ventilatie_schil"],
+      "step_2_categories": ["verwarming_duurzaam", "hernieuwbare_opwek"],
+      "step_3_categories": ["verwarming_fossiel_efficiënt"],
+      "rule": "prefer_step_1_before_step_2_before_step_3",
+      "reason": "Trias Energetica is leidend voor scenario-opbouw en maatregelvolgorde."
+    }
+  ],
+  "capacity_rules": [
+    {
+      "id": "C01",
+      "measure_id": "zonnepanelen_pv",
+      "capacity_type": "roof_or_system_capacity",
+      "reason": "PV mag alleen als verbeterbaar worden gemarkeerd als uitbreiding fysiek of logisch nog mogelijk is.",
+      "behavior_if_unknown": "allow_but_mark_capacity_uncertain"
+    }
+  ],
+  "selection_hints": [
+    {
+      "id": "S01",
+      "measure_id": "all_electric_warmtepomp",
+      "hint": "Kies alleen als de woning na schilverbetering en afgifte-aanpassing logisch geschikt is."
+    },
+    {
+      "id": "S02",
+      "measure_id": "hybride_warmtepomp",
+      "hint": "Gebruik als tussenstap wanneer all-electric nog niet logisch of haalbaar is."
+    },
+    {
+      "id": "S03",
+      "measure_id": "hr_ketel_vervanging",
+      "hint": "Gebruik als fallback binnen stap 3 van Trias wanneer duurzame routes onvoldoende logisch of haalbaar zijn."
+    }
+  ],
+  "scenario_validation_policy": {
+    "reject_hard_dependency_violations": true,
+    "reject_mutual_exclusion_violations": true,
+    "flag_conditional_dependency_violations_as_uncertain": true,
+    "apply_ordering_rules_before_scenario_calculation": true
+  }
 }
