@@ -1,4 +1,9 @@
 {
+  "methodology": {
+    "primary_standard": "NTA 8800",
+    "inspection_guidance": "ISSO 82.1",
+    "primary_indicator": "EP2_kWh_per_m2_year"
+  },
   "rules": [
     {
       "target_field": "prestatie.current_ep2_kwh_m2",
@@ -6,8 +11,17 @@
       "section_hints": ["Samenvatting", "Energieprestatie", "Resultaten"],
       "pattern_hints": ["EP2\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
       "value_type": "float",
-      "required_for": ["label_mapping"],
+      "required_for": ["label_mapping", "scenario_calculation"],
       "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+    },
+    {
+      "target_field": "prestatie.current_label",
+      "possible_labels": ["Energielabel", "Labelklasse", "Label"],
+      "section_hints": ["Samenvatting", "Energieprestatie"],
+      "pattern_hints": ["label\\s*[:=]\\s*([A-G][+]{0,4})"],
+      "value_type": "string",
+      "required_for": ["reporting"],
+      "fallback_behavior": "derive_from_ep2_if_missing"
     },
     {
       "target_field": "woning.bouwjaar",
@@ -16,6 +30,186 @@
       "pattern_hints": ["(19|20)\\d{2}"],
       "value_type": "int",
       "required_for": ["measure_relevance"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "bouwdelen.dak.rc",
+      "possible_labels": ["Dak Rc", "Rc dak", "Warmteweerstand dak"],
+      "section_hints": ["Schil", "Constructies"],
+      "pattern_hints": ["dak.*rc\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "bouwdelen.gevel.rc",
+      "possible_labels": ["Gevel Rc", "Rc gevel", "Warmteweerstand gevel"],
+      "section_hints": ["Schil", "Constructies"],
+      "pattern_hints": ["gevel.*rc\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "bouwdelen.vloer.rc",
+      "possible_labels": ["Vloer Rc", "Rc vloer", "Warmteweerstand vloer"],
+      "section_hints": ["Schil", "Constructies"],
+      "pattern_hints": ["vloer.*rc\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "bouwdelen.ramen.u_waarde",
+      "possible_labels": ["U-waarde glas", "Ramen U", "Beglazing U"],
+      "section_hints": ["Glas", "Schil"],
+      "pattern_hints": ["u-?waarde.*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "bouwdelen.ramen.kozijn_isolerend",
+      "possible_labels": ["Isolerend kozijn", "Kozijnkwaliteit", "Geisoleerd kozijn"],
+      "section_hints": ["Glas", "Ramen en deuren"],
+      "pattern_hints": ["kozijn.*(isolerend|geisoleerd|ja|nee)"],
+      "value_type": "bool",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "bouwdelen.luchtdichting.qv10",
+      "possible_labels": ["Qv10", "Luchtdoorlatendheid", "Kierdichting"],
+      "section_hints": ["Infiltratie", "Ventilatie"],
+      "pattern_hints": ["qv10\\s*[:=]\\s*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.verwarming.type",
+      "possible_labels": ["Type verwarming", "Opwekker ruimteverwarming", "Installatie verwarming"],
+      "section_hints": ["Installaties", "Verwarming"],
+      "pattern_hints": ["(all-electric|hybride|hr-ketel|warmtepomp)"],
+      "value_type": "string",
+      "required_for": ["measure_matching", "scenario_calculation"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.verwarming.rendement",
+      "possible_labels": ["Rendement verwarming", "Ketelrendement", "OPF verwarming"],
+      "section_hints": ["Installaties", "Verwarming"],
+      "pattern_hints": ["rendement.*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.afgifte.max_aanvoer_temp_c",
+      "possible_labels": ["Aanvoertemperatuur", "Max aanvoer", "LT-afgifte"],
+      "section_hints": ["Verwarming", "Afgifte"],
+      "pattern_hints": ["aanvoer.*([0-9]{2})\\s*°?c"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.regeling.waterzijdig_ingeregeld",
+      "possible_labels": ["Waterzijdig ingeregeld", "Ingeregeld cv"],
+      "section_hints": ["Regeling", "Verwarming"],
+      "pattern_hints": ["waterzijdig.*(ja|nee)"],
+      "value_type": "bool",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.regeling.klasse",
+      "possible_labels": ["Regelklasse", "Regeling klasse"],
+      "section_hints": ["Regeling", "Verwarming"],
+      "pattern_hints": ["klasse\\s*([1-8])"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.ventilatie.type",
+      "possible_labels": ["Ventilatietype", "Ventilatiesysteem", "WTW"],
+      "section_hints": ["Ventilatie"],
+      "pattern_hints": ["(balans|wtw|mechanisch|natuurlijk)"],
+      "value_type": "string",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.ventilatie.vraaggestuurd",
+      "possible_labels": ["Vraaggestuurd", "CO2-sturing"],
+      "section_hints": ["Ventilatie"],
+      "pattern_hints": ["(vraaggestuurd|co2).*(ja|nee)"],
+      "value_type": "bool",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.ventilatie.inregeling_ok",
+      "possible_labels": ["Inregeling ventilatie", "Ventilatiedebiet ingeregeld"],
+      "section_hints": ["Ventilatie"],
+      "pattern_hints": ["inregeling.*(ja|nee)"],
+      "value_type": "bool",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.pv.kwp",
+      "possible_labels": ["PV vermogen", "kWp", "Zonnepanelen"],
+      "section_hints": ["Opwek", "Duurzame energie"],
+      "pattern_hints": ["pv.*([0-9]+[\\.,]?[0-9]*)\\s*kwp"],
+      "value_type": "float",
+      "required_for": ["measure_matching", "scenario_calculation"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.pv.max_extra_kwp",
+      "possible_labels": ["Extra PV potentieel", "Dakpotentieel pv", "Beschikbaar dakoppervlak pv"],
+      "section_hints": ["Opwek", "Duurzame energie"],
+      "pattern_hints": ["extra.*pv.*([0-9]+[\\.,]?[0-9]*)\\s*kwp"],
+      "value_type": "float",
+      "required_for": ["capacity_checks"],
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+    },
+    {
+      "target_field": "installaties.elektra.max_aansluitwaarde_kw",
+      "possible_labels": ["Aansluitwaarde elektra", "Netaansluiting kW", "Hoofdzekering"],
+      "section_hints": ["Elektra", "Installaties"],
+      "pattern_hints": ["aansluitwaarde.*([0-9]+[\\.,]?[0-9]*)\\s*kw"],
+      "value_type": "float",
+      "required_for": ["capacity_checks"],
+      "fallback_behavior": "use_assumption_rules_and_mark_uncertain"
+    },
+    {
+      "target_field": "installaties.tapwater.zonneboiler",
+      "possible_labels": ["Zonneboiler", "Solar boiler"],
+      "section_hints": ["Tapwater", "Duurzame energie"],
+      "pattern_hints": ["zonneboiler.*(ja|nee)"],
+      "value_type": "bool",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.tapwater.douche_wtw",
+      "possible_labels": ["Douche-WTW", "Douche warmtewisselaar"],
+      "section_hints": ["Tapwater", "Duurzame energie"],
+      "pattern_hints": ["douche.*wtw.*(ja|nee)"],
+      "value_type": "bool",
+      "required_for": ["measure_matching"],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "target_field": "installaties.tapwater.rendement",
+      "possible_labels": ["Rendement tapwater", "OPF tapwater"],
+      "section_hints": ["Tapwater", "Installaties"],
+      "pattern_hints": ["tapwater.*rendement.*([0-9]+[\\.,]?[0-9]*)"],
+      "value_type": "float",
+      "required_for": ["measure_matching"],
       "fallback_behavior": "null_allowed"
     }
   ]
