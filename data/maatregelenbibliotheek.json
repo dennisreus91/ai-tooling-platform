@@ -1,25 +1,875 @@
 {
-  "version": "poc-1",
+  "schema_version": "1.0",
+  "purpose": "Statische maatregelenbibliotheek voor matching met woningopname, maatregelstatusbepaling, scenario-opbouw volgens Trias Energetica en indicatieve POC-doorrekening richting EP2 en doellabel.",
+  "methodology_basis": {
+    "recording_protocol_reference": "ISSO 82.1",
+    "calculation_reference": "NTA 8800:2024",
+    "logic_order": [
+      "beperk energievraag",
+      "gebruik duurzame energiebronnen",
+      "vul resterende energievraag efficiënt fossiel in"
+    ]
+  },
+  "general_notes": {
+    "current_state_included": false,
+    "current_values_source": "separate_building_state_json",
+    "investment_prices_are": "indicatief_excl_btw_tenzij_anders_aangegeven",
+    "goal_values_are": "standaard doelwaarden voor eerste selectie en Gemini-POC-doorrekening",
+    "unit_cost_usage": "investering = maatregelhoeveelheid x investering_per_eenheid",
+    "label_relevance_only": true,
+    "scenario_engine_use": true
+  },
   "measures": [
-    {"id":"dakisolatie","canonical_name":"Dakisolatie","aliases":["dak na-isolatie"],"category":"schil","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"transmissie","calculation_priority":1,"target_metric":"bouwdelen.dak.rc","target_value":6.0,"target_value_note":"Rc streefwaarde","unit_for_quantity":"m2","investment_per_unit_eur":85,"investment_bandwidth":{"min":60,"max":140},"impact_path":"ep2_reduction","match_fields":["bouwdelen.dak.rc"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"min_gte","notes":"Alleen labelrelevant bij verwarmde schil.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient","not_applicable"]},
-    {"id":"gevelisolatie","canonical_name":"Gevelisolatie","aliases":["spouwmuurisolatie","binnengevelisolatie"],"category":"schil","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"transmissie","calculation_priority":2,"target_metric":"bouwdelen.gevel.rc","target_value":4.5,"target_value_note":"Rc streefwaarde","unit_for_quantity":"m2","investment_per_unit_eur":75,"investment_bandwidth":{"min":45,"max":125},"impact_path":"ep2_reduction","match_fields":["bouwdelen.gevel.rc"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"min_gte","notes":"Bij monument vaak niet toepasbaar.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient","not_applicable"]},
-    {"id":"vloerisolatie","canonical_name":"Vloerisolatie","aliases":["bodemisolatie"],"category":"schil","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"transmissie","calculation_priority":3,"target_metric":"bouwdelen.vloer.rc","target_value":3.5,"target_value_note":"Rc streefwaarde","unit_for_quantity":"m2","investment_per_unit_eur":45,"investment_bandwidth":{"min":30,"max":80},"impact_path":"ep2_reduction","match_fields":["bouwdelen.vloer.rc"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"min_gte","notes":"Alleen bij kruipruimte of vloeropbouw.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient","not_applicable"]},
-    {"id":"hrpp_glas","canonical_name":"HR++ glas","aliases":["hr++"],"category":"glas","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"transmissie","calculation_priority":4,"target_metric":"bouwdelen.ramen.u_waarde","target_value":1.2,"target_value_note":"U <= 1.2","unit_for_quantity":"m2","investment_per_unit_eur":140,"investment_bandwidth":{"min":110,"max":220},"impact_path":"ep2_reduction","match_fields":["bouwdelen.ramen.u_waarde"],"dependencies":[],"mutual_exclusions":["triple_glas"],"comparison_mode":"max_lte","notes":"Vervangt enkel/dubbel glas.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"triple_glas","canonical_name":"Triple glas","aliases":["hr+++"],"category":"glas","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"transmissie","calculation_priority":5,"target_metric":"bouwdelen.ramen.u_waarde","target_value":0.8,"target_value_note":"U <= 0.8","unit_for_quantity":"m2","investment_per_unit_eur":180,"investment_bandwidth":{"min":150,"max":280},"impact_path":"ep2_reduction","match_fields":["bouwdelen.ramen.u_waarde"],"dependencies":["kozijnvervanging_isolerend"],"mutual_exclusions":["hrpp_glas"],"comparison_mode":"max_lte","notes":"Vaak incl. kozijnaanpassing.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"kozijnvervanging_isolerend","canonical_name":"Kozijnvervanging isolerend","aliases":["isolerend kozijn"],"category":"glas","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"transmissie","calculation_priority":6,"target_metric":"bouwdelen.ramen.kozijn_isolerend","target_value":true,"target_value_note":"Isolerende kozijnen aanwezig","unit_for_quantity":"m2","investment_per_unit_eur":220,"investment_bandwidth":{"min":180,"max":360},"impact_path":"comfort_plus_label","match_fields":["bouwdelen.ramen.kozijn_isolerend"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"equals","notes":"Vooral relevant bij oud kozijn.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","sufficient"]},
-    {"id":"kierdichting","canonical_name":"Kierdichting en luchtdichting","aliases":["luchtdicht maken"],"category":"luchtdichting","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"infiltratie","calculation_priority":7,"target_metric":"bouwdelen.luchtdichting.qv10","target_value":0.7,"target_value_note":"Lager is beter","unit_for_quantity":"woning","investment_per_unit_eur":1200,"investment_bandwidth":{"min":500,"max":2500},"impact_path":"ep2_reduction","match_fields":["bouwdelen.luchtdichting.qv10"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"max_lte","notes":"Combineren met ventilatie-optimalisatie.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"all_electric_wp","canonical_name":"All-electric warmtepomp","aliases":["volledige warmtepomp"],"category":"duurzame_installatie","trias_step":2,"isso_reference":"ISSO 82.1","nta_domain":"verwarming","calculation_priority":8,"target_metric":"installaties.verwarming.type","target_value":"all_electric_warmtepomp","target_value_note":"Volledig elektrisch","unit_for_quantity":"woning","investment_per_unit_eur":12000,"investment_bandwidth":{"min":9000,"max":22000},"impact_path":"major_ep2_reduction","match_fields":["installaties.verwarming.type"],"dependencies":["lage_temp_afgifte"],"mutual_exclusions":["hybride_warmtepomp","hr_ketel_vervanging"],"comparison_mode":"equals","notes":"Capaciteit en netaansluiting checken.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient","capacity_limited"],"capacity_logic":{"field":"installaties.elektra.max_aansluitwaarde_kw","min_value":8}},
-    {"id":"hybride_warmtepomp","canonical_name":"Hybride warmtepomp","aliases":["hybride wp"],"category":"duurzame_installatie","trias_step":2,"isso_reference":"ISSO 82.1","nta_domain":"verwarming","calculation_priority":9,"target_metric":"installaties.verwarming.type","target_value":"hybride_warmtepomp","target_value_note":"Hybride systeem","unit_for_quantity":"woning","investment_per_unit_eur":6500,"investment_bandwidth":{"min":4500,"max":9000},"impact_path":"ep2_reduction","match_fields":["installaties.verwarming.type"],"dependencies":[],"mutual_exclusions":["all_electric_wp"],"comparison_mode":"equals","notes":"Geschikt als tussenstap.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"hr_ketel_vervanging","canonical_name":"HR-ketel vervanging","aliases":["nieuwe hr-ketel"],"category":"efficient_fossiel","trias_step":3,"isso_reference":"ISSO 82.1","nta_domain":"verwarming","calculation_priority":10,"target_metric":"installaties.verwarming.rendement","target_value":0.95,"target_value_note":"Rendement >=95%","unit_for_quantity":"woning","investment_per_unit_eur":3200,"investment_bandwidth":{"min":2200,"max":4800},"impact_path":"limited_ep2_reduction","match_fields":["installaties.verwarming.rendement"],"dependencies":[],"mutual_exclusions":["all_electric_wp"],"comparison_mode":"min_gte","notes":"Alleen reststap Trias 3.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"lage_temp_afgifte","canonical_name":"Lage temperatuur afgiftesysteem","aliases":["lt-radiatoren","vloerverwarming"],"category":"afgifte","trias_step":1,"isso_reference":"ISSO 82.1","nta_domain":"verwarming","calculation_priority":11,"target_metric":"installaties.afgifte.max_aanvoer_temp_c","target_value":45,"target_value_note":"max 45C","unit_for_quantity":"woning","investment_per_unit_eur":5500,"investment_bandwidth":{"min":3000,"max":12000},"impact_path":"enabler","match_fields":["installaties.afgifte.max_aanvoer_temp_c"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"max_lte","notes":"Enabler voor all-electric warmtepomp.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"waterzijdig_inregelen","canonical_name":"Waterzijdig inregelen","aliases":["inregelen cv"],"category":"regeling","trias_step":3,"isso_reference":"ISSO 82.1","nta_domain":"verwarming","calculation_priority":12,"target_metric":"installaties.regeling.waterzijdig_ingeregeld","target_value":true,"target_value_note":"Ingeregeld","unit_for_quantity":"woning","investment_per_unit_eur":900,"investment_bandwidth":{"min":400,"max":1600},"impact_path":"small_ep2_reduction","match_fields":["installaties.regeling.waterzijdig_ingeregeld"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"equals","notes":"Lage investering.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","sufficient"]},
-    {"id":"verbeterde_regeling","canonical_name":"Verbeterde verwarmingsregeling","aliases":["slimme thermostaat"],"category":"regeling","trias_step":3,"isso_reference":"ISSO 82.1","nta_domain":"verwarming","calculation_priority":13,"target_metric":"installaties.regeling.klasse","target_value":4,"target_value_note":"regelklasse >=4","unit_for_quantity":"woning","investment_per_unit_eur":650,"investment_bandwidth":{"min":250,"max":1400},"impact_path":"small_ep2_reduction","match_fields":["installaties.regeling.klasse"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"min_gte","notes":"Ondersteunt besparing.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"balansventilatie_wtw","canonical_name":"Balansventilatie met WTW","aliases":["wtw"],"category":"ventilatie","trias_step":3,"isso_reference":"ISSO 82.1","nta_domain":"ventilatie","calculation_priority":14,"target_metric":"installaties.ventilatie.type","target_value":"balans_wtw","target_value_note":"Type balans + WTW","unit_for_quantity":"woning","investment_per_unit_eur":5200,"investment_bandwidth":{"min":3500,"max":9000},"impact_path":"ep2_reduction","match_fields":["installaties.ventilatie.type"],"dependencies":["kierdichting"],"mutual_exclusions":[],"comparison_mode":"equals","notes":"Alleen logisch bij luchtdichte schil.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]},
-    {"id":"vraaggestuurde_ventilatie","canonical_name":"Vraaggestuurde ventilatie","aliases":["co2-sturing"],"category":"ventilatie","trias_step":3,"isso_reference":"ISSO 82.1","nta_domain":"ventilatie","calculation_priority":15,"target_metric":"installaties.ventilatie.vraaggestuurd","target_value":true,"target_value_note":"vraagsturing aanwezig","unit_for_quantity":"woning","investment_per_unit_eur":1800,"investment_bandwidth":{"min":900,"max":3200},"impact_path":"small_ep2_reduction","match_fields":["installaties.ventilatie.vraaggestuurd"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"equals","notes":"Alternatief als balansventilatie niet haalbaar.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","sufficient"]},
-    {"id":"ventilatie_optimalisatie","canonical_name":"Ventilatie-optimalisatie","aliases":["ventilatiedebiet optimaliseren"],"category":"ventilatie","trias_step":3,"isso_reference":"ISSO 82.1","nta_domain":"ventilatie","calculation_priority":16,"target_metric":"installaties.ventilatie.inregeling_ok","target_value":true,"target_value_note":"inregeling conform ontwerp","unit_for_quantity":"woning","investment_per_unit_eur":700,"investment_bandwidth":{"min":300,"max":1200},"impact_path":"small_ep2_reduction","match_fields":["installaties.ventilatie.inregeling_ok"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"equals","notes":"Basismaatregel bij bestaande mechanische ventilatie.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","sufficient"]},
-    {"id":"pv_zonnepanelen","canonical_name":"Zonnepanelen PV","aliases":["pv"],"category":"duurzame_opwek","trias_step":2,"isso_reference":"ISSO 82.1","nta_domain":"opwek","calculation_priority":17,"target_metric":"installaties.pv.kwp","target_value":4.0,"target_value_note":"Minimaal 4 kWp","unit_for_quantity":"kWp","investment_per_unit_eur":1100,"investment_bandwidth":{"min":850,"max":1500},"impact_path":"ep2_reduction","match_fields":["installaties.pv.kwp"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"min_gte","notes":"Capaciteit afhankelijk van dak.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient","capacity_limited"],"capacity_logic":{"field":"installaties.pv.max_extra_kwp","min_value":0.5}},
-    {"id":"zonneboiler","canonical_name":"Zonneboiler","aliases":["solar boiler"],"category":"duurzame_opwek","trias_step":2,"isso_reference":"ISSO 82.1","nta_domain":"tapwater","calculation_priority":18,"target_metric":"installaties.tapwater.zonneboiler","target_value":true,"target_value_note":"aanwezig","unit_for_quantity":"woning","investment_per_unit_eur":4200,"investment_bandwidth":{"min":3000,"max":7000},"impact_path":"tapwater_reduction","match_fields":["installaties.tapwater.zonneboiler"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"equals","notes":"Niet altijd kosteneffectief.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","sufficient"]},
-    {"id":"douche_wtw","canonical_name":"Douche-WTW","aliases":["douche warmtewisselaar"],"category":"duurzame_installatie","trias_step":2,"isso_reference":"ISSO 82.1","nta_domain":"tapwater","calculation_priority":19,"target_metric":"installaties.tapwater.douche_wtw","target_value":true,"target_value_note":"aanwezig","unit_for_quantity":"woning","investment_per_unit_eur":950,"investment_bandwidth":{"min":600,"max":1800},"impact_path":"tapwater_reduction","match_fields":["installaties.tapwater.douche_wtw"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"equals","notes":"Aanvullende maatregel.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","sufficient"]},
-    {"id":"ww_opwek_optimaliseren","canonical_name":"Warmtapwateropwekker optimaliseren","aliases":["boiler optimalisatie"],"category":"efficient_fossiel","trias_step":3,"isso_reference":"ISSO 82.1","nta_domain":"tapwater","calculation_priority":20,"target_metric":"installaties.tapwater.rendement","target_value":0.85,"target_value_note":"rendement >= 85%","unit_for_quantity":"woning","investment_per_unit_eur":1700,"investment_bandwidth":{"min":900,"max":3400},"impact_path":"small_ep2_reduction","match_fields":["installaties.tapwater.rendement"],"dependencies":[],"mutual_exclusions":[],"comparison_mode":"min_gte","notes":"Restoptimalisatie.","label_relevant":true,"scenario_allowed":true,"status_output_types":["missing","improvable","sufficient"]}
+    {
+      "id": "dakisolatie",
+      "canonical_name": "Dakisolatie",
+      "aliases": [
+        "dak na-isolatie",
+        "isolatie hellend dak",
+        "isolatie plat dak"
+      ],
+      "category": "schil",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "transmissie",
+      "calculation_priority": 1,
+      "target_metric": "bouwdelen.dak.rc",
+      "target_value": 6.0,
+      "target_value_note": "Rc streefwaarde voor verbetertraject",
+      "unit_for_quantity": "m2",
+      "investment_per_unit_eur": 85,
+      "investment_bandwidth_eur": {
+        "min": 60,
+        "max": 140
+      },
+      "impact_path": [
+        "lagere warmtebehoefte",
+        "lagere verwarmingsvraag",
+        "lagere EP1",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "bouwdelen.dak.rc"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "min_gte",
+      "notes": "Alleen labelrelevant bij dakdelen binnen de verwarmde schil.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient",
+        "not_applicable"
+      ]
+    },
+    {
+      "id": "gevelisolatie",
+      "canonical_name": "Gevelisolatie",
+      "aliases": [
+        "spouwmuurisolatie",
+        "binnengevelisolatie",
+        "buitengevelisolatie"
+      ],
+      "category": "schil",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "transmissie",
+      "calculation_priority": 2,
+      "target_metric": "bouwdelen.gevel.rc",
+      "target_value": 4.7,
+      "target_value_note": "Rc streefwaarde voor verbetertraject",
+      "unit_for_quantity": "m2",
+      "investment_per_unit_eur": 75,
+      "investment_bandwidth_eur": {
+        "min": 45,
+        "max": 125
+      },
+      "impact_path": [
+        "lagere transmissieverliezen",
+        "lagere warmtebehoefte",
+        "lagere EP1",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "bouwdelen.gevel.rc"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "min_gte",
+      "notes": "Bij monumentale of esthetisch gevoelige gevels kan toepasbaarheid beperkt zijn.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient",
+        "not_applicable"
+      ]
+    },
+    {
+      "id": "vloerisolatie",
+      "canonical_name": "Vloerisolatie",
+      "aliases": [
+        "bodemisolatie",
+        "begane grondvloer isolatie"
+      ],
+      "category": "schil",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "transmissie",
+      "calculation_priority": 3,
+      "target_metric": "bouwdelen.vloer.rc",
+      "target_value": 3.5,
+      "target_value_note": "Rc streefwaarde voor verbetertraject",
+      "unit_for_quantity": "m2",
+      "investment_per_unit_eur": 45,
+      "investment_bandwidth_eur": {
+        "min": 30,
+        "max": 80
+      },
+      "impact_path": [
+        "lagere transmissieverliezen via vloer",
+        "lagere warmtebehoefte",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "bouwdelen.vloer.rc"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "min_gte",
+      "notes": "Alleen toepasbaar waar kruipruimte, bodemisolatie of vloeraanpak technisch logisch is.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient",
+        "not_applicable"
+      ]
+    },
+    {
+      "id": "hrpp_glas",
+      "canonical_name": "HR++ glas",
+      "aliases": [
+        "hr++",
+        "isolatieglas hr++"
+      ],
+      "category": "schil",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "transmissie",
+      "calculation_priority": 4,
+      "target_metric": "bouwdelen.ramen.u_waarde",
+      "target_value": 1.2,
+      "target_value_note": "U-waarde <= 1.2 W/m2K",
+      "unit_for_quantity": "m2_glassurface",
+      "investment_per_unit_eur": 140,
+      "investment_bandwidth_eur": {
+        "min": 110,
+        "max": 220
+      },
+      "impact_path": [
+        "lagere transmissie via glas",
+        "lagere warmtebehoefte",
+        "lagere EP1",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "bouwdelen.ramen.u_waarde"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [
+        "triple_glas"
+      ],
+      "comparison_mode": "max_lte",
+      "notes": "Vervangt enkel glas of ouder dubbel glas.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "triple_glas",
+      "canonical_name": "Triple glas",
+      "aliases": [
+        "hr+++",
+        "driedubbel glas"
+      ],
+      "category": "schil",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "transmissie",
+      "calculation_priority": 5,
+      "target_metric": "bouwdelen.ramen.u_waarde",
+      "target_value": 0.8,
+      "target_value_note": "U-waarde <= 0.8 W/m2K",
+      "unit_for_quantity": "m2_glassurface",
+      "investment_per_unit_eur": 180,
+      "investment_bandwidth_eur": {
+        "min": 150,
+        "max": 280
+      },
+      "impact_path": [
+        "sterke reductie transmissie via glas",
+        "lagere warmtebehoefte",
+        "lagere EP1",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "bouwdelen.ramen.u_waarde"
+      ],
+      "dependencies": [
+        "kozijnvervanging_isolerend"
+      ],
+      "mutual_exclusions": [
+        "hrpp_glas"
+      ],
+      "comparison_mode": "max_lte",
+      "notes": "Vaak logisch in combinatie met kozijnvervanging of geschiktheidscheck van bestaande kozijnen.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "kozijnvervanging_isolerend",
+      "canonical_name": "Kozijnvervanging isolerend",
+      "aliases": [
+        "isolerend kozijn",
+        "nieuwe kozijnen",
+        "kozijnvervanging"
+      ],
+      "category": "schil",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "transmissie",
+      "calculation_priority": 6,
+      "target_metric": "bouwdelen.ramen.kozijn_isolerend",
+      "target_value": true,
+      "target_value_note": "Isolerende kozijnen aanwezig",
+      "unit_for_quantity": "m2_kozijnvlak",
+      "investment_per_unit_eur": 220,
+      "investment_bandwidth_eur": {
+        "min": 180,
+        "max": 360
+      },
+      "impact_path": [
+        "lagere transmissie via kozijnen",
+        "verbeterde luchtdichting",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "bouwdelen.ramen.kozijn_isolerend"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "equals",
+      "notes": "Vooral relevant als bestaande kozijnen technisch of energetisch ontoereikend zijn.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "sufficient",
+        "not_applicable"
+      ]
+    },
+    {
+      "id": "kierdichting_en_luchtdichting",
+      "canonical_name": "Kierdichting en luchtdichting",
+      "aliases": [
+        "luchtdicht maken",
+        "tochtreductie",
+        "kierdichting"
+      ],
+      "category": "schil",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "infiltratie",
+      "calculation_priority": 7,
+      "target_metric": "bouwdelen.luchtdichting.qv10",
+      "target_value": 0.7,
+      "target_value_note": "Lager is beter; doelwaarde voor verbeterde luchtdichtheid in POC",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 1200,
+      "investment_bandwidth_eur": {
+        "min": 500,
+        "max": 2500
+      },
+      "impact_path": [
+        "minder warmteverlies door infiltratie",
+        "lagere warmtebehoefte",
+        "lagere EP1",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "bouwdelen.luchtdichting.qv10"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "max_lte",
+      "notes": "Combineren met ventilatie-optimalisatie of balansventilatie waar logisch.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "lage_temperatuur_afgiftesysteem",
+      "canonical_name": "Lage temperatuur afgiftesysteem",
+      "aliases": [
+        "lt-radiatoren",
+        "vloerverwarming",
+        "lage temperatuur verwarming"
+      ],
+      "category": "afgifte",
+      "trias_step": 1,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "verwarming",
+      "calculation_priority": 8,
+      "target_metric": "installaties.afgifte.max_aanvoer_temp_c",
+      "target_value": 45,
+      "target_value_note": "Maximale aanvoertemperatuur 45C of lager",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 5500,
+      "investment_bandwidth_eur": {
+        "min": 3000,
+        "max": 12000
+      },
+      "impact_path": [
+        "betere systeemefficiëntie",
+        "geschikt voor warmtepomp",
+        "ondersteunt lagere EP2"
+      ],
+      "match_fields": [
+        "installaties.afgifte.max_aanvoer_temp_c"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "max_lte",
+      "notes": "Belangrijke enabling measure voor all-electric warmtepomp.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "all_electric_warmtepomp",
+      "canonical_name": "All-electric warmtepomp",
+      "aliases": [
+        "volledige warmtepomp",
+        "elektrische warmtepomp",
+        "all electric warmtepomp"
+      ],
+      "category": "duurzame_installatie",
+      "trias_step": 2,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "verwarming",
+      "calculation_priority": 9,
+      "target_metric": "installaties.verwarming.type",
+      "target_value": "all_electric_warmtepomp",
+      "target_value_note": "Volledig elektrische verwarmingsopwekking",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 12000,
+      "investment_bandwidth_eur": {
+        "min": 9000,
+        "max": 22000
+      },
+      "impact_path": [
+        "fors lager primair fossiel energiegebruik",
+        "sterke EP2-reductie"
+      ],
+      "match_fields": [
+        "installaties.verwarming.type"
+      ],
+      "dependencies": [
+        "lage_temperatuur_afgiftesysteem"
+      ],
+      "mutual_exclusions": [
+        "hybride_warmtepomp",
+        "hr_ketel_vervanging"
+      ],
+      "comparison_mode": "equals",
+      "notes": "Alleen logisch bij voldoende geschikte schil, afgifte en elektra-capaciteit.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient",
+        "capacity_limited"
+      ],
+      "capacity_logic": {
+        "field": "installaties.elektra.max_aansluitwaarde_kw",
+        "min_value": 8,
+        "behavior_if_missing": "flag_uncertain"
+      }
+    },
+    {
+      "id": "hybride_warmtepomp",
+      "canonical_name": "Hybride warmtepomp",
+      "aliases": [
+        "hybride wp",
+        "bivalente warmtepomp"
+      ],
+      "category": "duurzame_installatie",
+      "trias_step": 2,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "verwarming",
+      "calculation_priority": 10,
+      "target_metric": "installaties.verwarming.type",
+      "target_value": "hybride_warmtepomp",
+      "target_value_note": "Hybride warmtepompsysteem",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 6500,
+      "investment_bandwidth_eur": {
+        "min": 4500,
+        "max": 9000
+      },
+      "impact_path": [
+        "deels vervangen gasvraag voor verwarming",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "installaties.verwarming.type"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [
+        "all_electric_warmtepomp"
+      ],
+      "comparison_mode": "equals",
+      "notes": "Geschikt als tussenstap wanneer all-electric nog niet logisch of haalbaar is.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "zonnepanelen_pv",
+      "canonical_name": "Zonnepanelen PV",
+      "aliases": [
+        "pv",
+        "zonnepanelen",
+        "zonnestroom"
+      ],
+      "category": "duurzame_opwek",
+      "trias_step": 2,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "opwek",
+      "calculation_priority": 11,
+      "target_metric": "installaties.pv.kwp",
+      "target_value": 4.0,
+      "target_value_note": "Minimaal 4.0 kWp in POC-referentieset",
+      "unit_for_quantity": "kWp",
+      "investment_per_unit_eur": 1100,
+      "investment_bandwidth_eur": {
+        "min": 850,
+        "max": 1500
+      },
+      "impact_path": [
+        "gebouwgebonden elektriciteitsopwek",
+        "verlaging primair fossiel energiegebruik",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "installaties.pv.kwp"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "min_gte",
+      "notes": "Capaciteit afhankelijk van dakpotentieel en systeemruimte.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient",
+        "capacity_limited"
+      ],
+      "capacity_logic": {
+        "field": "installaties.pv.max_extra_kwp",
+        "min_value": 0.5,
+        "behavior_if_missing": "flag_uncertain"
+      }
+    },
+    {
+      "id": "zonneboiler",
+      "canonical_name": "Zonneboiler",
+      "aliases": [
+        "solar boiler",
+        "thermische zonne-energie"
+      ],
+      "category": "duurzame_opwek",
+      "trias_step": 2,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "tapwater",
+      "calculation_priority": 12,
+      "target_metric": "installaties.tapwater.zonneboiler",
+      "target_value": true,
+      "target_value_note": "Zonneboiler aanwezig",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 4200,
+      "investment_bandwidth_eur": {
+        "min": 3000,
+        "max": 7000
+      },
+      "impact_path": [
+        "duurzame bijdrage aan warmtapwater",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "installaties.tapwater.zonneboiler"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "equals",
+      "notes": "Niet altijd de meest kosteneffectieve maatregel, maar binnen scope als labelrelevante maatregel.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "douche_wtw",
+      "canonical_name": "Douche-WTW",
+      "aliases": [
+        "douche warmtewisselaar",
+        "dwtw"
+      ],
+      "category": "duurzame_installatie",
+      "trias_step": 2,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "tapwater",
+      "calculation_priority": 13,
+      "target_metric": "installaties.tapwater.douche_wtw",
+      "target_value": true,
+      "target_value_note": "Douche-WTW aanwezig",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 950,
+      "investment_bandwidth_eur": {
+        "min": 600,
+        "max": 1800
+      },
+      "impact_path": [
+        "lagere warmtapwaterbehoefte",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "installaties.tapwater.douche_wtw"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "equals",
+      "notes": "Aanvullende maatregel met bescheiden maar reële tapwaterimpact.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "hr_ketel_vervanging",
+      "canonical_name": "HR-ketel vervanging",
+      "aliases": [
+        "nieuwe hr-ketel",
+        "hr107",
+        "cv ketel vervangen"
+      ],
+      "category": "efficient_fossiel",
+      "trias_step": 3,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "verwarming",
+      "calculation_priority": 14,
+      "target_metric": "installaties.verwarming.rendement",
+      "target_value": 0.95,
+      "target_value_note": "Rendement >= 95%",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 3200,
+      "investment_bandwidth_eur": {
+        "min": 2200,
+        "max": 4800
+      },
+      "impact_path": [
+        "beperkte verlaging fossiel verbruik",
+        "beperkte EP2-reductie"
+      ],
+      "match_fields": [
+        "installaties.verwarming.rendement"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [
+        "all_electric_warmtepomp"
+      ],
+      "comparison_mode": "min_gte",
+      "notes": "Alleen inzetten als Trias-stap 3 of fallbackroute wanneer duurzame routes onvoldoende haalbaar zijn.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "waterzijdig_inregelen",
+      "canonical_name": "Waterzijdig inregelen",
+      "aliases": [
+        "inregelen cv",
+        "hydraulisch inregelen"
+      ],
+      "category": "efficient_fossiel",
+      "trias_step": 3,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "verwarming",
+      "calculation_priority": 15,
+      "target_metric": "installaties.regeling.waterzijdig_ingeregeld",
+      "target_value": true,
+      "target_value_note": "Waterzijdig ingeregeld",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 900,
+      "investment_bandwidth_eur": {
+        "min": 400,
+        "max": 1600
+      },
+      "impact_path": [
+        "betere systeembalans",
+        "kleine EP2-reductie"
+      ],
+      "match_fields": [
+        "installaties.regeling.waterzijdig_ingeregeld"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "equals",
+      "notes": "Relatief lage investering en ondersteunend voor systeemprestatie.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "verbeterde_verwarmingsregeling",
+      "canonical_name": "Verbeterde verwarmingsregeling",
+      "aliases": [
+        "slimme thermostaat",
+        "zone regeling",
+        "verbeterde regeling"
+      ],
+      "category": "efficient_fossiel",
+      "trias_step": 3,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "verwarming",
+      "calculation_priority": 16,
+      "target_metric": "installaties.regeling.klasse",
+      "target_value": 4,
+      "target_value_note": "Regelklasse >= 4",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 650,
+      "investment_bandwidth_eur": {
+        "min": 250,
+        "max": 1400
+      },
+      "impact_path": [
+        "betere temperatuurregeling",
+        "kleine EP2-reductie"
+      ],
+      "match_fields": [
+        "installaties.regeling.klasse"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "min_gte",
+      "notes": "Ondersteunt efficiënter gebruik van bestaand of vernieuwd verwarmingssysteem.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "balansventilatie_wtw",
+      "canonical_name": "Balansventilatie met WTW",
+      "aliases": [
+        "wtw",
+        "balansventilatie"
+      ],
+      "category": "efficient_fossiel",
+      "trias_step": 3,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "ventilatie",
+      "calculation_priority": 17,
+      "target_metric": "installaties.ventilatie.type",
+      "target_value": "balans_wtw",
+      "target_value_note": "Type balansventilatie met warmteterugwinning",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 5200,
+      "investment_bandwidth_eur": {
+        "min": 3500,
+        "max": 9000
+      },
+      "impact_path": [
+        "minder ventilatieverlies",
+        "lagere warmtebehoefte",
+        "lagere EP2"
+      ],
+      "match_fields": [
+        "installaties.ventilatie.type"
+      ],
+      "dependencies": [
+        "kierdichting_en_luchtdichting"
+      ],
+      "mutual_exclusions": [],
+      "comparison_mode": "equals",
+      "notes": "Alleen logisch bij voldoende luchtdichte schil of expliciete onzekerheidsmarkering.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "vraaggestuurde_ventilatie",
+      "canonical_name": "Vraaggestuurde ventilatie",
+      "aliases": [
+        "co2-sturing",
+        "vraagsturing ventilatie"
+      ],
+      "category": "efficient_fossiel",
+      "trias_step": 3,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "ventilatie",
+      "calculation_priority": 18,
+      "target_metric": "installaties.ventilatie.vraaggestuurd",
+      "target_value": true,
+      "target_value_note": "Vraagsturing aanwezig",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 1800,
+      "investment_bandwidth_eur": {
+        "min": 900,
+        "max": 3200
+      },
+      "impact_path": [
+        "lager gemiddeld ventilatiedebiet",
+        "kleine EP2-reductie"
+      ],
+      "match_fields": [
+        "installaties.ventilatie.vraaggestuurd"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "equals",
+      "notes": "Alternatief wanneer balansventilatie met WTW niet haalbaar of niet logisch is.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "ventilatie_optimalisatie",
+      "canonical_name": "Ventilatie-optimalisatie",
+      "aliases": [
+        "ventilatiedebiet optimaliseren",
+        "ventilatie inregelen"
+      ],
+      "category": "efficient_fossiel",
+      "trias_step": 3,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "ventilatie",
+      "calculation_priority": 19,
+      "target_metric": "installaties.ventilatie.inregeling_ok",
+      "target_value": true,
+      "target_value_note": "Ventilatiesysteem ingeregeld conform ontwerp",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 700,
+      "investment_bandwidth_eur": {
+        "min": 300,
+        "max": 1200
+      },
+      "impact_path": [
+        "lagere hulpenergie of betere ventilatieprestatie",
+        "kleine EP2-reductie"
+      ],
+      "match_fields": [
+        "installaties.ventilatie.inregeling_ok"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "equals",
+      "notes": "Basisoptimalisatie voor bestaande mechanische ventilatiesystemen.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "sufficient"
+      ]
+    },
+    {
+      "id": "warmtapwateropwekker_optimaliseren",
+      "canonical_name": "Warmtapwateropwekker optimaliseren",
+      "aliases": [
+        "boiler optimalisatie",
+        "warmtapwater toestel verbeteren"
+      ],
+      "category": "efficient_fossiel",
+      "trias_step": 3,
+      "isso_reference": "ISSO 82.1",
+      "nta_domain": "tapwater",
+      "calculation_priority": 20,
+      "target_metric": "installaties.tapwater.rendement",
+      "target_value": 0.85,
+      "target_value_note": "Rendement >= 85%",
+      "unit_for_quantity": "woning",
+      "investment_per_unit_eur": 1700,
+      "investment_bandwidth_eur": {
+        "min": 900,
+        "max": 3400
+      },
+      "impact_path": [
+        "lager energiegebruik voor warmtapwater",
+        "kleine EP2-reductie"
+      ],
+      "match_fields": [
+        "installaties.tapwater.rendement"
+      ],
+      "dependencies": [],
+      "mutual_exclusions": [],
+      "comparison_mode": "min_gte",
+      "notes": "Restoptimalisatie voor warmtapwater als duurzame alternatieven of zwaardere ingrepen niet gekozen worden.",
+      "label_relevant": true,
+      "scenario_allowed": true,
+      "status_output_types": [
+        "missing",
+        "improvable",
+        "sufficient"
+      ]
+    }
   ]
 }
