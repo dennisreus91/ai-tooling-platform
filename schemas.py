@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
 AllowedTargetLabel = Literal["next_step", "A", "B", "C", "D", "E", "F", "G"]
+AllowedEnergyLabel = Literal["A++++", "A+++", "A++", "A+", "A", "B", "C", "D", "E", "F", "G"]
 MeasureStatusType = Literal[
     "missing",
     "improvable",
@@ -31,14 +32,29 @@ class Constraints(BaseModel):
     target_label: AllowedTargetLabel
     required_measures: List[str] = Field(default_factory=list)
 
-
-class Measure(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str = Field(..., min_length=1)
-    cost: float
-    score_gain: float
-    notes: str | None = None
+    @field_validator("required_measures", mode="before")
+    @classmethod
+    def ensure_required_measures_list(cls, value: Any) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            raise ValueError("required_measures moet een lijst, string of null zijn.")
+        cleaned: List[str] = []
+        seen: set[str] = set()
+        for item in value:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if not text:
+                continue
+            lowered = text.lower()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            cleaned.append(text)
+        return cleaned
 
 
 class ExtractieMeta(BaseModel):
@@ -48,21 +64,197 @@ class ExtractieMeta(BaseModel):
     missing_fields: List[str] = Field(default_factory=list)
     assumptions: List[str] = Field(default_factory=list)
     uncertainties: List[str] = Field(default_factory=list)
+    source_sections_found: List[str] = Field(default_factory=list)
+
+
+class WoningMeta(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    bron: Optional[str] = None
+    versie: Optional[str] = None
+    bestandstype: Optional[str] = None
+    extractiemethode: Optional[str] = None
+
+
+class WoningInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    bouwjaar: Optional[int] = None
+    type: Optional[str] = None
+    gebruiksoppervlakte_m2: Optional[float] = None
+    inhoud_m3: Optional[float] = None
+    bouwperiode: Optional[str] = None
+    woningtype_brontekst: Optional[str] = None
+
+
+class PrestatieInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    current_ep2_kwh_m2: Optional[float] = None
+    current_label: Optional[str] = None
+    ep1_kwh_m2: Optional[float] = None
+    ep3_aandeel_hernieuwbaar_pct: Optional[float] = None
+    bronwaarde_ep2: Optional[str] = None
+    bronwaarde_label: Optional[str] = None
+
+
+class MaatwerkadviesInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    gasverbruik_m3: Optional[float] = None
+    elektriciteitsverbruik_kwh: Optional[float] = None
+    elektriciteitsopwekking_kwh: Optional[float] = None
+    netto_elektriciteit_kwh: Optional[float] = None
+    warmteverbruik_gj: Optional[float] = None
+    co2_kg: Optional[float] = None
+
+
+class DakInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    rc: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class GevelInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    rc: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class VloerInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    rc: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class RamenInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    u_waarde: Optional[float] = None
+    glastype: Optional[str] = None
+    kozijn_isolerend: Optional[bool] = None
+    brontekst: Optional[str] = None
+
+
+class LuchtdichtingInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    qv10: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class BouwdelenInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    dak: DakInfo = Field(default_factory=DakInfo)
+    gevel: GevelInfo = Field(default_factory=GevelInfo)
+    vloer: VloerInfo = Field(default_factory=VloerInfo)
+    ramen: RamenInfo = Field(default_factory=RamenInfo)
+    luchtdichting: LuchtdichtingInfo = Field(default_factory=LuchtdichtingInfo)
+
+
+class VerwarmingInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: Optional[str] = None
+    rendement: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class AfgifteInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    max_aanvoer_temp_c: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class RegelingInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    waterzijdig_ingeregeld: Optional[bool] = None
+    klasse: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class VentilatieInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: Optional[str] = None
+    vraaggestuurd: Optional[bool] = None
+    inregeling_ok: Optional[bool] = None
+    brontekst: Optional[str] = None
+
+
+class TapwaterInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: Optional[str] = None
+    zonneboiler: Optional[bool] = None
+    douche_wtw: Optional[bool] = None
+    rendement: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class PvInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    kwp: Optional[float] = None
+    max_extra_kwp: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class ElektraInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    max_aansluitwaarde_kw: Optional[float] = None
+    brontekst: Optional[str] = None
+
+
+class InstallatiesInfo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    verwarming: VerwarmingInfo = Field(default_factory=VerwarmingInfo)
+    afgifte: AfgifteInfo = Field(default_factory=AfgifteInfo)
+    regeling: RegelingInfo = Field(default_factory=RegelingInfo)
+    ventilatie: VentilatieInfo = Field(default_factory=VentilatieInfo)
+    tapwater: TapwaterInfo = Field(default_factory=TapwaterInfo)
+    pv: PvInfo = Field(default_factory=PvInfo)
+    elektra: ElektraInfo = Field(default_factory=ElektraInfo)
 
 
 class WoningModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    meta: Dict[str, Any] = Field(default_factory=dict)
-    woning: Dict[str, Any] = Field(default_factory=dict)
-    prestatie: Dict[str, Any] = Field(default_factory=dict)
-    bouwdelen: Dict[str, Any] = Field(default_factory=dict)
-    installaties: Dict[str, Any] = Field(default_factory=dict)
+    meta: WoningMeta = Field(default_factory=WoningMeta)
+    woning: WoningInfo = Field(default_factory=WoningInfo)
+    prestatie: PrestatieInfo = Field(default_factory=PrestatieInfo)
+    maatwerkadvies: MaatwerkadviesInfo = Field(default_factory=MaatwerkadviesInfo)
+    bouwdelen: BouwdelenInfo = Field(default_factory=BouwdelenInfo)
+    installaties: InstallatiesInfo = Field(default_factory=InstallatiesInfo)
     samenvatting_huidige_maatregelen: List[str] = Field(default_factory=list)
     extractie_meta: ExtractieMeta = Field(default_factory=ExtractieMeta)
 
 
+class Measure(BaseModel):
+    """
+    Legacy / compatibility schema voor eerdere POC-stappen.
+    Niet primair leidend voor de nieuwe scenarioflow.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., min_length=1)
+    cost: float = Field(..., ge=0)
+    score_gain: float = Field(..., ge=0)
+    notes: str | None = None
+
+
 class ExtractedReport(BaseModel):
+    """
+    Legacy / compatibility schema voor eerdere POC-stappen.
+    """
     model_config = ConfigDict(extra="forbid")
 
     current_label: str = Field(..., min_length=1)
@@ -109,7 +301,7 @@ class ScenarioResult(BaseModel):
 
     scenario_id: str
     scenario_name: str
-    expected_ep2_kwh_m2: float = Field(ge=0.0)
+    expected_ep2_kwh_m2: float = Field(default=0.0)
     expected_label: str
     selected_measures: List[str] = Field(default_factory=list)
     total_investment_eur: float = Field(ge=0.0)
@@ -131,6 +323,9 @@ class ChosenScenario(BaseModel):
 
 
 class OptimizationMeasure(BaseModel):
+    """
+    Legacy / compatibility schema voor eerdere optimalisatieflow.
+    """
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1)
@@ -140,6 +335,9 @@ class OptimizationMeasure(BaseModel):
 
 
 class OptimizationResult(BaseModel):
+    """
+    Legacy / compatibility schema voor eerdere optimalisatieflow.
+    """
     model_config = ConfigDict(extra="forbid")
 
     selected_measures: List[OptimizationMeasure] = Field(default_factory=list)
@@ -160,15 +358,15 @@ class FinalReport(BaseModel):
     title: str = Field(..., min_length=1)
     summary: str = Field(..., min_length=1)
     current_label: str = Field(..., min_length=1)
-    current_ep2_kwh_m2: float = Field(..., ge=0)
+    current_ep2_kwh_m2: float = Field(ge=0.0)
     chosen_scenario: str = Field(..., min_length=1)
     measures: List[str] = Field(default_factory=list)
     logical_order: List[str] = Field(default_factory=list)
-    total_investment: float = Field(..., ge=0)
+    total_investment_eur: float = Field(ge=0.0)
     new_label: str = Field(..., min_length=1)
-    new_ep2_kwh_m2: float = Field(..., ge=0)
-    monthly_savings_eur: float = Field(..., ge=0)
-    expected_property_value_gain_eur: float = Field(..., ge=0)
+    new_ep2_kwh_m2: float = Field()
+    monthly_savings_eur: float = Field(ge=0.0)
+    expected_property_value_gain_eur: float = Field(ge=0.0)
     motivation: str = Field(..., min_length=1)
     assumptions: List[str] = Field(default_factory=list)
     uncertainties: List[str] = Field(default_factory=list)
@@ -186,4 +384,3 @@ class PocFlowResult(BaseModel):
     scenario_results: List[ScenarioResult]
     chosen_scenario: ChosenScenario
     final_report: FinalReport
-
