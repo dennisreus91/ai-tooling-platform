@@ -1,12 +1,17 @@
 import os
 from pathlib import Path
 from typing import Any
+import tempfile
 
 from flask import Flask, abort, request, send_file
 from pydantic import ValidationError
 
-from gemini_service import download_file_to_temp, extract_report_data, upload_case_file
-from schemas import RunPocFlowRequest, WoningModel
+from gemini_service import (
+    download_file_to_temp,
+    extract_woningmodel_data,
+    upload_case_file,
+)
+from schemas import RunPocFlowRequest
 from services.poc_flow_service import run_poc_flow
 from validators import normalize_constraints
 
@@ -16,6 +21,7 @@ _KNOWN_PROCESSING_CODES = (
     "insufficient_measures",
     "methodology_conflict",
     "invalid_llm_json",
+    "invalid_woningmodel",
     "processing_error",
 )
 
@@ -25,30 +31,6 @@ def _extract_processing_code(message: str) -> str:
         if message.startswith(f"{code}:"):
             return code
     return "processing_error"
-
-
-def _build_woningmodel_from_extract(extract_payload: dict[str, Any]) -> WoningModel:
-    current_label = str(extract_payload.get("current_label", "onbekend"))
-    current_ep2 = float(extract_payload.get("current_ep2_kwh_m2", 320.0))
-    return WoningModel.model_validate(
-        {
-            "meta": {"source": "gemini_extract"},
-            "woning": {"oppervlakte_m2": 120},
-            "prestatie": {
-                "current_label": current_label,
-                "current_ep2_kwh_m2": current_ep2,
-            },
-            "bouwdelen": {},
-            "installaties": {},
-            "samenvatting_huidige_maatregelen": [m.get("name", "") for m in extract_payload.get("measures", [])],
-            "extractie_meta": {
-                "confidence": 0.6,
-                "missing_fields": [],
-                "assumptions": ["Woningmodel deels afgeleid van extractie-output."],
-                "uncertainties": extract_payload.get("notes", []),
-            },
-        }
-    )
 
 
 def create_app() -> Flask:
@@ -90,33 +72,85 @@ def create_app() -> Flask:
     def run_poc_flow_route() -> tuple[dict[str, Any], int]:
         payload = request.get_json(silent=True)
         if payload is None:
-            return {"error": {"code": "invalid_json", "message": "Request body must be valid JSON."}}, 400
+            return {
+                "error": {
+                    "code": "invalid_json",
+                    "message": "Request body must be valid JSON.",
+                }
+            }, 400
 
         try:
             parsed = RunPocFlowRequest.model_validate(payload)
             constraints = normalize_constraints(parsed.target_label, parsed.required_measures)
         except ValidationError as exc:
-            return {"error": {"code": "validation_error", "message": "Input validation failed.", "details": exc.errors()}}, 400
+            return {
+                "error": {
+                    "code": "validation_error",
+                    "message": "Input validation failed.",
+                    "details": exc.errors(),
+                }
+            }, 400
         except ValueError as exc:
-            return {"error": {"code": "constraint_error", "message": str(exc)}}, 400
+            return {
+                "error": {
+                    "code": "constraint_error",
+                    "message": str(exc),
+                }
+            }, 400
+
+        local_path: str | None = None
 
         try:
+            # 1. Download bestand
             local_path = download_file_to_temp(str(parsed.file_url))
+
+            # 2. Upload naar Gemini
             uploaded_file = upload_case_file(local_path)
-            extracted_report = extract_report_data(uploaded_file).model_dump()
-            woningmodel = _build_woningmodel_from_extract(extracted_report)
+
+            # 3. Extractie naar WoningModel
+            woningmodel = extract_woningmodel_data(uploaded_file)
+
+            # 4. Volledige POC-flow
             result = run_poc_flow(constraints, woningmodel)
-        except Exception as exc:
+
+        except ValueError as exc:
             return {
                 "error": {
                     "code": _extract_processing_code(str(exc)),
+                    "message": str(exc),
+                }
+            }, 400
+        except RuntimeError as exc:
+            return {
+                "error": {
+                    "code": _extract_processing_code(str(exc)),
+                    "message": str(exc),
+                }
+            }, 500
+        except Exception as exc:
+            return {
+                "error": {
+                    "code": "processing_error",
                     "message": f"processing_error: {exc}",
                 }
             }, 500
+        finally:
+            if local_path:
+                try:
+                    Path(local_path).unlink(missing_ok=True)
+                except Exception:
+                    # tijdelijke cleanup mag de response niet breken
+                    pass
 
         response_data = result.model_dump()
+
         if not parsed.debug:
+            # Behoud eindrapport en kernoutput, maar verberg zware debug/tussenlagen
             response_data.pop("woningmodel", None)
+            response_data.pop("measure_statuses", None)
+            response_data.pop("measure_impacts", None)
+            response_data.pop("scenarios", None)
+            response_data.pop("scenario_results", None)
 
         return {
             "status": "completed",
