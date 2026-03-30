@@ -1,13 +1,8 @@
 # Test fixtures
 
-Place a small, sanitized PDF here for live Gemini tests:
+## sample_report.pdf
+Representatief Vabi-/rapportbestand voor live Gemini extractie en end-to-end POC-tests.
 
-- `sample_report.pdf`
-
-Requirements for `sample_report.pdf`:
-- small file size
-- non-sensitive
-- representative enough for extraction
-- safe to commit to the repository if you want Codex Cloud to use it
-
-If you do not want to commit the PDF, the live tests will skip unless the file is present in the runtime environment.
+Gebruik:
+- `test_live_stepwise_pipeline.py`
+- `test_e2e_live.py`
