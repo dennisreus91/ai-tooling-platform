@@ -3,13 +3,41 @@ services:
     name: ai-tooling-platform
     runtime: python
     plan: starter
+    rootDir: .
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
     autoDeploy: true
+    healthCheckPath: /health
+
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+
       - key: FLASK_ENV
         value: production
+
       - key: APP_NAME
         value: ai-tooling-platform
+
+      - key: ALLOW_TEST_FILE_ENDPOINT
+        value: "false"
+
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+
+      - key: GEMINI_EXTRACTION_MODEL
+        value: gemini-2.5-flash
+
+      - key: GEMINI_SCENARIO_MODEL
+        value: gemini-2.5-flash
+
+      - key: GEMINI_REPORT_MODEL
+        value: gemini-2.5-flash
+
+      # Zet deze in Render als secret value
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # Zet deze in Render als secret value indien gebruikt
+      - key: GEMINI_METHOD_FILE_SEARCH_STORE
+        sync: false
