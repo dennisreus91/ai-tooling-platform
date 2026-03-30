@@ -1,226 +1,282 @@
 # AGENTS.md
 
 ## Projectdoel
-Bouw binnen deze bestaande repository een Flask-gebaseerde energielabel-tool voor labelsprongadvies op basis van Vabi-rapporten.
+Bouw binnen deze repository een Flask-gebaseerde energielabel-tool voor labelsprongadvies op basis van Vabi-rapporten.
 
 De tool moet:
-- een Vabi-bestand ontvangen
+- een Vabi-bestand verwerken
 - een doel-label ontvangen
-- het Vabi-bestand via Gemini LLM mappen naar een gestructureerd woningmodel
-- de huidige woningstatus vergelijken met een maatregelenbibliotheek in JSON
-- ontbrekende en verbeterbare maatregelen bepalen
-- meerdere scenario’s opbouwen volgens Trias Energetica
-- scenario’s via Gemini doorrekenen
+- het bestand via Gemini omzetten naar een gestructureerd woningmodel
+- deterministisch maatregelen analyseren
+- scenario’s opbouwen volgens Trias Energetica
+- scenario’s doorrekenen (POC)
 - het beste scenario selecteren
-- een adviesrapport genereren
+- een technisch adviesrapport genereren
 
-Deze tool is een POC/demo en geen officiële energielabelregistratie.
+Dit is een **POC / scenario-tool**, geen officiële energielabelregistratie.
 
-## Kernprincipes
-- Werk voort op de bestaande repository.
-- Maak geen nieuwe repository.
-- Gebruik de bestaande Flask-, Gemini-, test- en Render-structuur als basis.
-- Houd wijzigingen klein, testbaar en modulair.
-- Refactor alleen waar functioneel nodig.
+---
 
-## Methodische uitgangspunten
-- EP2 / primair fossiel energiegebruik in kWh/m²·jr is leidend voor labelduiding.
-- Gebruik NTA 8800 als methodische achtergrond.
-- Gebruik ISSO 82.1 als basis voor labelrelevante maatregelen en opnamegerichte interpretatie.
-- Gebruik Trias Energetica als leidende logica voor scenario-opbouw:
-  1. beperk energievraag
-  2. gebruik duurzame energie
-  3. vul resterende vraag efficiënt fossiel in
-- Neem alleen maatregelen mee die labelrelevant zijn binnen de POC-scope.
+# 🔑 Kernprincipes
 
-## Architectuurregels
-- Houd `app.py` dun.
-- Plaats businesslogica in aparte services of modules.
-- Houd extractie, validatie, maatregelmatching, maatregelimpact, scenario-opbouw, scenario-doorrekening, scenarioselectie en rapportage gescheiden.
-- Gebruik Pydantic voor alle gestructureerde data.
-- Gebruik JSON-configuratiebestanden als bron van waarheid voor vaste logica.
-- Maak de scenario-doorrekening vervangbaar:
-  - nu: Gemini
-  - later: Vabi of Uniec
+## 1. JSON is de bron van waarheid (kritisch)
+Alle vaste logica komt uit `data/*.json`.
 
-## LLM-regels
+Dit betekent:
+- GEEN labelgrenzen in Python
+- GEEN Trias-logica hardcoderen
+- GEEN maatregelregels in code dupliceren
+
+Code mag alleen:
+- JSON lezen
+- JSON toepassen
+
+NOOIT:
+- JSON overschrijven met eigen logica
+
+---
+
+## 2. Deterministisch > AI
+De tool is primair deterministisch.
+
+| Onderdeel | Type |
+|----------|------|
+| Extractie | AI |
+| Maatregelmatching | Deterministisch |
+| Scenario-opbouw | Deterministisch |
+| Labelmapping | Deterministisch |
+| Scenarioselectie | Deterministisch |
+
+AI is **ondersteunend**, nooit leidend.
+
+---
+
+## 3. WoningModel is het centrale contract
+
+Alle logica draait op één object: WoningModel
+
+Regels:
+- Dit model mag niet impliciet veranderen
+- Alle services gebruiken dit als input/output
+- Extractie moet hier naartoe mappen
+- Validatie moet hierop draaien
+
+Breek dit model niet zonder alle services aan te passen.
+
+---
+
+## 4. Null-safe architectuur
+De tool mag nooit falen op ontbrekende data.
+
+Gebruik:
+- `null` voor onbekende waarden
+- `extractie_meta.missing_fields`
+- `extractie_meta.assumptions`
+- `extractie_meta.uncertainties`
+
+NOOIT:
+- crashen op ontbrekende veldwaarden
+- stilzwijgend defaults invullen in extractie
+
+Defaults horen alleen thuis in:
+👉 `aannameregels.json`
+
+---
+
+# 🧠 LLM-regels (Gemini)
+
 Gebruik Gemini alleen voor:
-- extractie van Vabi naar gestructureerde JSON
-- indicatieve maatregel-impact screening
-- scenario-doorrekening in de POC
-- rapportgeneratie
+- Vabi → WoningModel extractie
+- optionele impactanalyse
+- optionele scenario-opbouw
+- optionele rapporttekst
 
-Gebruik Gemini niet voor:
-- harde businessvalidatie
-- labelgrenzenlogica
-- constraints-normalisatie
-- foutafhandeling
-- deterministische vergelijkingsregels
+Gebruik Gemini NIET voor:
+- labelbepaling
+- EP2-logica
+- scenarioselectie
+- constraints-validatie
+- businessregels
 
 Alle LLM-output moet:
-- JSON zijn
-- parsebaar zijn
-- met Pydantic worden gevalideerd
+- geldige JSON zijn
+- schema-valide zijn (Pydantic)
 - expliciete aannames bevatten
 - expliciete onzekerheden bevatten
 
-## JSON-configuratiebestanden
-Houd deze bestanden in de repository als bron van waarheid:
-- `data/woningmodel_schema.json`
-- `data/vabi_mapping.json`
-- `data/maatregelenbibliotheek.json`
-- `data/maatregel_relations.json`
-- `data/trias_structuur.json`
-- `data/scenario_templates.json`
-- `data/labelgrenzen.json`
-- `data/woningwaarde_label_impact.json`
-- `data/aannameregels.json`
-- `data/referentiecases.json` (optioneel, gewenst)
+---
 
-Maak deze bestanden inhoudelijk bruikbaar voor de POC; geen lege placeholders.
+# 🚫 Verboden gedrag (zeer belangrijk)
 
-## Vabi-extractieregels
-- Verwacht variatie in Vabi-bestanden.
-- Bouw extractie tolerant en null-safe.
-- Laat ontbrekende velden nooit een crash veroorzaken.
-- Gebruik een flexibel woningmodel met:
-  - confidence
-  - missing_fields
-  - assumptions
-- `vabi_mapping.json` moet extractieregels bevatten, geen starre cell mapping.
+Agents mogen NIET:
 
-## Maatregelvergelijking
-Vergelijk huidige woningdata met de maatregelenbibliotheek en bepaal per maatregel:
-- `missing`
-- `improvable`
-- `sufficient`
-- `not_applicable`
-- `capacity_limited`
+- labelgrenzen hardcoderen
+- Trias-logica in Python herschrijven
+- maatregelen toevoegen buiten `maatregelenbibliotheek.json`
+- dependencies negeren
+- mutual exclusions negeren
+- aannames verstoppen buiten `extractie_meta`
+- defaults invullen zonder logging
+- AI-uitkomsten blind vertrouwen zonder validatie
+- output genereren buiten schema’s
 
-Gebruik hiervoor:
-- canonieke naam
-- aliases
-- target_metric
-- target_value
-- comparison_mode
+---
+
+# 🔄 Pipeline (contract)
+
+## Stap 1 – Extractie
+Input:
+- Vabi bestand
+
+Output:
+- `WoningModel`
+
+---
+
+## Stap 2 – Validatie & normalisatie
+- null-safe
+- geen crash
+- deduplicatie van meta
+
+---
+
+## Stap 3 – Maatregelmatching
+Output:
+- `MeasureStatus[]`
+
+---
+
+## Stap 4 – Impactscreening
+Output:
+- `MeasureImpact[]`
+
+---
+
+## Stap 5 – Scenario-opbouw
+Gebaseerd op:
+- `scenario_templates.json`
+- Trias
 - dependencies
-- mutual_exclusions
-- capacity logic waar relevant
 
-## Scenario-opbouw
-Gebruik vaste scenario-templates.
-Implementeer minimaal:
-- `MIN_LABELSPRONG`
-- `GOEDKOOPSTE_DOELLABEL`
-- `GEBALANCEERD`
-- `SCHIL_EERST`
+Output:
+- `ScenarioDefinition[]`
 
-Scenario’s moeten:
-- starten vanuit de huidige woningstatus
-- Trias Energetica volgen
-- rekening houden met dependencies en uitsluitingen
-- geen onlogische combinaties bevatten
+---
 
-## Scenario-selectie
-Selecteer het beste scenario op basis van vaste regels:
-1. kies het goedkoopste scenario dat het gewenste label haalt
-2. gebruik logische uitvoerbaarheid als secundaire afweging
-3. geef voorrang aan consistente Trias-volgorde
-4. kies een iets duurder scenario als het goedkoopste technisch of bouwkundig onlogisch is
+## Stap 6 – Scenario-calculatie
+POC:
+- indicatief
 
-Als geen scenario het doel-label haalt:
-- kies het scenario dat het dichtst bij het doel komt
-- rapporteer dit expliciet
+Later:
+- vervangbaar met Vabi/Uniec
 
-## Labelgrenzen en woningwaarde
-- Labelgrenzen moeten deterministisch uit `labelgrenzen.json` komen.
-- Woningwaarde-impact moet deterministisch uit `woningwaarde_label_impact.json` komen.
-- Gemini mag deze regels niet verzinnen.
+---
 
-## Rapportageregels
-Het eindrapport moet minimaal bevatten:
-- huidig label
-- huidige EP2
+## Stap 7 – Scenarioselectie
+Deterministisch:
+1. goedkoopste die doel haalt
+2. anders dichtstbijzijnde
+
+---
+
+## Stap 8 – Rapport
+Gebaseerd op:
 - gekozen scenario
-- nieuw label
-- nieuwe EP2
-- benodigde maatregelen
-- logische volgorde
-- totale investering
-- maandbesparing
-- woningwaarde-stijging
-- motivatie voor gekozen scenario
-- aannames
-- onzekerheden
-- POC-disclaimer
+- geen nieuwe logica
 
-De rapportlaag mag geen nieuwe maatregelen of uitkomsten verzinnen die niet in de scenarioselectie zitten.
+---
 
-## Bestandsverantwoordelijkheden
-- `app.py`: routes, orchestration, foutafhandeling
-- `gemini_service.py`: generieke Gemini-koppeling
-- `prompts.py`: alle prompts
-- `schemas.py`: Pydantic schema’s
-- `validators.py`: deterministische validatie en normalisatie
-- `services/*`: domeinspecifieke logica
-- `data/*`: JSON-configuratie
-- `tests/*`: unit, mock, API en live tests
+# 🧱 Architectuurregels
 
-## Testregels
-Voeg tests toe bij elke nieuwe feature.
-Gebruik:
+- `app.py` = orchestration only
+- `services/*` = businesslogica
+- `schemas.py` = contract
+- `validators.py` = deterministische regels
+- `prompts.py` = AI-instructies
+- `gemini_service.py` = LLM interface
+- `data/*` = waarheid
+
+---
+
+# ⚙️ JSON-configuratie
+
+Gebruik deze bestanden actief:
+
+- `labelgrenzen.json`
+- `maatregelenbibliotheek.json`
+- `maatregel_relations.json`
+- `trias_structuur.json`
+- `scenario_templates.json`
+- `woningwaarde_label_impact.json`
+- `aannameregels.json`
+- `vabi_mapping.json`
+
+Deze moeten:
+- volledig zijn
+- geen placeholders bevatten
+- consistent blijven
+
+---
+
+# 🧪 Testregels
+
+Elke wijziging moet getest worden.
+
+Minimaal:
 - unit tests
-- mock tests
+- pipeline tests
 - API tests
-- live Gemini tests
-- stepwise pipeline tests
 
 Verplicht te testen:
-- Vabi-extractie
-- null-safe extractie
-- maatregelmatching
-- maatregel-impact
-- scenario-opbouw
-- scenario-doorrekening
+- extractie
+- null-safe gedrag
 - labelmapping
-- woningwaarde-impact
 - scenarioselectie
-- rapportgeneratie
-- end-to-end flow
+- rapportoutput
 
-Tests met externe calls moeten gemockt worden tenzij expliciet live getest.
-Live tests moeten expliciet activeerbaar blijven.
+---
 
-## Codespaces en Render
-- Zorg dat de tool lokaal, in Codespaces en op Render te testen is.
-- Maak tussenstappen inspecteerbaar waar nuttig.
-- Houd bestaande deployment-aanpak in stand.
+# ⚙️ Omgevingsvariabelen
 
-## Veiligheid en configuratie
-- Gebruik environment variables voor alle secrets en modelconfiguratie.
-- Hardcode nooit API keys of store-namen.
-- Gebruik:
-  - `GEMINI_API_KEY`
-  - `GEMINI_MODEL`
-  - `GEMINI_EXTRACTION_MODEL`
-  - `GEMINI_SCENARIO_MODEL`
-  - `GEMINI_REPORT_MODEL`
-  - `GEMINI_METHOD_FILE_SEARCH_STORE`
+Gebruik alleen environment variables:
 
-## Scopebeheersing
-Tenzij expliciet gevraagd:
-- geen nieuwe frontend
-- geen database
-- geen async workers
-- geen grote frameworkwissels
-- geen officiële labelregistratielogica
-- geen PDF-generator als dat nog niet gevraagd is
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `GEMINI_EXTRACTION_MODEL`
+- `GEMINI_SCENARIO_MODEL`
+- `GEMINI_REPORT_MODEL`
 
-## Definitie van done
+Nooit hardcoderen.
+
+---
+
+# 🚀 Extensies
+
+Toekomstige uitbreidingen:
+
+## 1. Officiële rekenkern
+- Vabi
+- Uniec
+
+## 2. Data-integraties
+- BAG
+- EP-online
+
+## 3. AI uitbreidingen
+- scenario-optimalisatie
+- rapportverrijking
+
+---
+
+# 📌 Definitie van Done
+
 Een taak is pas klaar als:
-- de code werkt
-- de scope is afgedekt
-- relevante tests zijn toegevoegd of aangepast
+
+- code werkt
+- JSON-structuur gerespecteerd is
+- geen businesslogica is gedupliceerd
 - tests groen zijn
-- de flow end-to-end werkt binnen de POC-scope
-- geen onnodige scope creep is toegevoegd
+- pipeline end-to-end werkt
+- geen scope creep
+
+---
