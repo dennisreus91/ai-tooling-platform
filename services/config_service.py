@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 
-BASE_CONFIG_DIR = Path(__file__).resolve().parents[2] / "data"
+BASE_CONFIG_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
 class ConfigError(Exception):

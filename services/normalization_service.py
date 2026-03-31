@@ -3,23 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from schemas import WoningModel
-from services.config_service import (
-    get_assumption_rules,
-)
-
-
-def _ensure_extractie_meta(model: WoningModel) -> None:
-    """
-    Zorgt dat extractie_meta altijd de vereiste lijsten/velden bevat.
-    """
-    if model.extractie_meta is None:
-        model.extractie_meta = {}
-
-    model.extractie_meta.setdefault("confidence", 1.0)
-    model.extractie_meta.setdefault("missing_fields", [])
-    model.extractie_meta.setdefault("assumptions", [])
-    model.extractie_meta.setdefault("uncertainties", [])
+from schemas import ExtractieMeta, WoningModel
+from services.config_service import get_assumption_rules
 
 
 def _append_unique(lst: list[str], value: str) -> None:
@@ -46,10 +31,17 @@ def _set_nested(container: dict[str, Any], path: str, value: Any) -> None:
     current[parts[-1]] = value
 
 
-def _apply_assumption_rules(data: dict[str, Any], model: WoningModel) -> None:
-    """
-    Past conservatieve fallbackregels toe vanuit aannameregels.json.
-    """
+def _ensure_extractie_meta(model: WoningModel) -> ExtractieMeta:
+    if model.extractie_meta is None:
+        model.extractie_meta = ExtractieMeta()
+
+    model.extractie_meta.missing_fields = list(model.extractie_meta.missing_fields or [])
+    model.extractie_meta.assumptions = list(model.extractie_meta.assumptions or [])
+    model.extractie_meta.uncertainties = list(model.extractie_meta.uncertainties or [])
+    return model.extractie_meta
+
+
+def _apply_assumption_rules(data: dict[str, Any], meta: ExtractieMeta) -> None:
     assumption_rules = get_assumption_rules()
     rules = assumption_rules.get("rules", [])
 
@@ -65,29 +57,26 @@ def _apply_assumption_rules(data: dict[str, Any], model: WoningModel) -> None:
             continue
 
         current_value = _get_nested(data, field)
+        if current_value is not None:
+            continue
 
-        if current_value is None:
-            _set_nested(data, field, fallback)
-            _append_unique(model.extractie_meta["missing_fields"], field)
+        _set_nested(data, field, fallback)
+        _append_unique(meta.missing_fields, field)
 
-            if report_as_assumption:
-                _append_unique(
-                    model.extractie_meta["assumptions"],
-                    f"{field}: fallback '{fallback}' toegepast. Reden: {reason}",
-                )
-
+        if report_as_assumption:
             _append_unique(
-                model.extractie_meta["uncertainties"],
-                f"{field}: waarde ontbrak, conservatieve aanname toegepast ({uncertainty_level}).",
+                meta.assumptions,
+                f"{field}: fallback '{fallback}' toegepast. Reden: {reason}",
             )
 
-            current_confidence = float(model.extractie_meta.get("confidence", 1.0))
-            model.extractie_meta["confidence"] = max(
-                0.0, round(current_confidence - confidence_penalty, 4)
-            )
+        _append_unique(
+            meta.uncertainties,
+            f"{field}: waarde ontbrak, conservatieve aanname toegepast ({uncertainty_level}).",
+        )
+        meta.confidence = max(0.0, round(float(meta.confidence) - confidence_penalty, 4))
 
 
-def _normalize_numeric_fields(data: dict[str, Any], model: WoningModel) -> None:
+def _normalize_numeric_fields(data: dict[str, Any], meta: ExtractieMeta) -> None:
     numeric_paths = [
         "prestatie.current_ep2_kwh_m2",
         "woning.gebruiksoppervlakte_m2",
@@ -114,25 +103,18 @@ def _normalize_numeric_fields(data: dict[str, Any], model: WoningModel) -> None:
         try:
             if isinstance(value, str):
                 value = value.replace(",", ".").strip()
-            numeric_value = float(value)
+            numeric_value: int | float = float(value)
             if path.endswith("bouwjaar"):
                 numeric_value = int(numeric_value)
             _set_nested(data, path, numeric_value)
         except (TypeError, ValueError):
             _set_nested(data, path, None)
-            _append_unique(
-                model.extractie_meta["uncertainties"],
-                f"{path}: niet parsebaar naar numerieke waarde; op null gezet.",
-            )
-            _append_unique(model.extractie_meta["missing_fields"], path)
-
-            current_confidence = float(model.extractie_meta.get("confidence", 1.0))
-            model.extractie_meta["confidence"] = max(
-                0.0, round(current_confidence - 0.05, 4)
-            )
+            _append_unique(meta.uncertainties, f"{path}: niet parsebaar naar numerieke waarde; op null gezet.")
+            _append_unique(meta.missing_fields, path)
+            meta.confidence = max(0.0, round(float(meta.confidence) - 0.05, 4))
 
 
-def _normalize_boolean_fields(data: dict[str, Any], model: WoningModel) -> None:
+def _normalize_boolean_fields(data: dict[str, Any], meta: ExtractieMeta) -> None:
     bool_map = {
         "ja": True,
         "nee": False,
@@ -155,10 +137,7 @@ def _normalize_boolean_fields(data: dict[str, Any], model: WoningModel) -> None:
 
     for path in boolean_paths:
         value = _get_nested(data, path)
-        if value is None:
-            continue
-
-        if isinstance(value, bool):
+        if value is None or isinstance(value, bool):
             continue
 
         if isinstance(value, str):
@@ -168,22 +147,12 @@ def _normalize_boolean_fields(data: dict[str, Any], model: WoningModel) -> None:
                 continue
 
         _set_nested(data, path, None)
-        _append_unique(
-            model.extractie_meta["uncertainties"],
-            f"{path}: boolean waarde niet eenduidig parseerbaar; op null gezet.",
-        )
-        _append_unique(model.extractie_meta["missing_fields"], path)
-
-        current_confidence = float(model.extractie_meta.get("confidence", 1.0))
-        model.extractie_meta["confidence"] = max(
-            0.0, round(current_confidence - 0.03, 4)
-        )
+        _append_unique(meta.uncertainties, f"{path}: boolean waarde niet eenduidig parseerbaar; op null gezet.")
+        _append_unique(meta.missing_fields, path)
+        meta.confidence = max(0.0, round(float(meta.confidence) - 0.03, 4))
 
 
-def _normalize_enums(data: dict[str, Any], model: WoningModel) -> None:
-    """
-    Normaliseer terminologie zodat deze beter aansluit op maatregelenbibliotheek.json.
-    """
+def _normalize_enums(data: dict[str, Any]) -> None:
     heating_map = {
         "all-electric": "all_electric_warmtepomp",
         "all electric": "all_electric_warmtepomp",
@@ -196,7 +165,6 @@ def _normalize_enums(data: dict[str, Any], model: WoningModel) -> None:
         "cv-ketel": "hr_ketel",
         "cv ketel": "hr_ketel",
     }
-
     ventilation_map = {
         "balans": "balansventilatie",
         "wtw": "balans_wtw",
@@ -206,59 +174,32 @@ def _normalize_enums(data: dict[str, Any], model: WoningModel) -> None:
         "natuurlijk": "natuurlijke_ventilatie",
     }
 
-    heating_path = "installaties.verwarming.type"
-    ventilation_path = "installaties.ventilatie.type"
-
-    heating_value = _get_nested(data, heating_path)
+    heating_value = _get_nested(data, "installaties.verwarming.type")
     if isinstance(heating_value, str):
         normalized = heating_map.get(heating_value.strip().lower())
         if normalized:
-            _set_nested(data, heating_path, normalized)
+            _set_nested(data, "installaties.verwarming.type", normalized)
 
-    ventilation_value = _get_nested(data, ventilation_path)
+    ventilation_value = _get_nested(data, "installaties.ventilatie.type")
     if isinstance(ventilation_value, str):
         normalized = ventilation_map.get(ventilation_value.strip().lower())
         if normalized:
-            _set_nested(data, ventilation_path, normalized)
-
-
-def _deduplicate_meta(model: WoningModel) -> None:
-    model.extractie_meta["missing_fields"] = sorted(
-        set(model.extractie_meta.get("missing_fields", []))
-    )
-    model.extractie_meta["assumptions"] = sorted(
-        set(model.extractie_meta.get("assumptions", []))
-    )
-    model.extractie_meta["uncertainties"] = sorted(
-        set(model.extractie_meta.get("uncertainties", []))
-    )
+            _set_nested(data, "installaties.ventilatie.type", normalized)
 
 
 def normalize_woningmodel(model: WoningModel) -> WoningModel:
-    """
-    Normaliseer het woningmodel zodat:
-    - numerieke en boolean velden schoon zijn
-    - terminologie aansluit op de maatregelenbibliotheek
-    - fallbackregels uit aannameregels.json worden toegepast
-    - assumptions, missing_fields en uncertainties expliciet worden vastgelegd
-    """
-    _ensure_extractie_meta(model)
+    meta = _ensure_extractie_meta(model)
+    data = deepcopy(model.model_dump())
 
-    # Werk op een gewone dict-structuur om nested paths generiek te kunnen behandelen
-    data = deepcopy(model.model_dump() if hasattr(model, "model_dump") else dict(model))
+    _normalize_numeric_fields(data, meta)
+    _normalize_boolean_fields(data, meta)
+    _normalize_enums(data)
+    _apply_assumption_rules(data, meta)
 
-    _normalize_numeric_fields(data, model)
-    _normalize_boolean_fields(data, model)
-    _normalize_enums(data, model)
-    _apply_assumption_rules(data, model)
-    _deduplicate_meta(model)
+    meta.missing_fields = sorted(set(meta.missing_fields))
+    meta.assumptions = sorted(set(meta.assumptions))
+    meta.uncertainties = sorted(set(meta.uncertainties))
+    meta.confidence = max(0.0, min(1.0, float(meta.confidence)))
 
-    # Synchroniseer terug naar model
-    for key, value in data.items():
-        setattr(model, key, value)
-
-    # Confidence clamp
-    confidence = float(model.extractie_meta.get("confidence", 1.0))
-    model.extractie_meta["confidence"] = max(0.0, min(1.0, confidence))
-
-    return model
+    data["extractie_meta"] = meta.model_dump()
+    return WoningModel.model_validate(data)

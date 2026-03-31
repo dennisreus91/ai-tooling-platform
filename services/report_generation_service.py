@@ -51,7 +51,7 @@ def build_final_report(
         chosen_scenario=chosen.scenario_name,
         measures=measures,
         logical_order=logical_order,
-        total_investment=scenario_result.total_investment_eur,
+        total_investment_eur=scenario_result.total_investment_eur,
         new_label=scenario_result.expected_label,
         new_ep2_kwh_m2=scenario_result.expected_ep2_kwh_m2,
         monthly_savings_eur=scenario_result.monthly_savings_eur,

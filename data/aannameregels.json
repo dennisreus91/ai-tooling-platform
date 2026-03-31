@@ -46,7 +46,7 @@
         "field_unparseable"
       ],
       "uncertainty_level": "medium",
-      "confidence_penalty": 0.10,
+      "confidence_penalty": 0.1,
       "report_as_assumption": true
     },
     {
@@ -61,7 +61,7 @@
         "field_conflicting_and_unresolved"
       ],
       "uncertainty_level": "high",
-      "confidence_penalty": 0.30,
+      "confidence_penalty": 0.3,
       "report_as_assumption": true,
       "last_resort_only": true
     },
@@ -97,7 +97,7 @@
     },
     {
       "id": "A06",
-      "field": "installaties.warmtapwater.type",
+      "field": "installaties.tapwater.type",
       "fallback": "combiketel",
       "value_type": "string",
       "reason": "Conservatieve aanname passend bij een woning met HR-ketel als bestaande basisconfiguratie.",
@@ -106,7 +106,7 @@
         "field_unparseable"
       ],
       "uncertainty_level": "medium",
-      "confidence_penalty": 0.10,
+      "confidence_penalty": 0.1,
       "report_as_assumption": true
     },
     {
@@ -170,7 +170,7 @@
     },
     {
       "id": "A11",
-      "field": "bouwdelen.glas.type",
+      "field": "bouwdelen.ramen.glastype",
       "fallback": "dubbel_glas",
       "value_type": "string",
       "reason": "Conservatieve middenaanname wanneer het glastype niet eenduidig uit Vabi kan worden afgeleid.",
@@ -179,12 +179,12 @@
         "field_unparseable"
       ],
       "uncertainty_level": "medium",
-      "confidence_penalty": 0.10,
+      "confidence_penalty": 0.1,
       "report_as_assumption": true
     },
     {
       "id": "A12",
-      "field": "bouwdelen.glas.u_waarde",
+      "field": "bouwdelen.ramen.u_waarde",
       "fallback": 2.8,
       "value_type": "number",
       "reason": "Conservatieve U-waarde passend bij ouder dubbel glas wanneer exacte beglazingsprestatie ontbreekt.",
@@ -194,13 +194,13 @@
         "field_conflicting_and_unresolved"
       ],
       "uncertainty_level": "medium",
-      "confidence_penalty": 0.10,
+      "confidence_penalty": 0.1,
       "report_as_assumption": true
     },
     {
       "id": "A13",
-      "field": "installaties.opwekking.pv_aantal",
-      "fallback": 0,
+      "field": "installaties.pv.kwp",
+      "fallback": 0.0,
       "value_type": "number",
       "reason": "Geen zonnepanelen aannemen als aanwezigheid niet expliciet uit het bronbestand blijkt.",
       "apply_when": [
@@ -213,8 +213,8 @@
     },
     {
       "id": "A14",
-      "field": "installaties.opwekking.pv_vermogen_wp",
-      "fallback": 0,
+      "field": "installaties.pv.max_extra_kwp",
+      "fallback": 0.0,
       "value_type": "number",
       "reason": "Geen PV-opwekking toekennen zonder expliciete broninformatie.",
       "apply_when": [

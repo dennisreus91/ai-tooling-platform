@@ -11,7 +11,7 @@ from typing import Any
 import requests
 from google import genai
 
-from extraction_service import extract_woningmodel_from_payload
+from services.extraction_service import extract_woningmodel_from_payload
 from prompts import (
     SYSTEM_INSTRUCTION_BASELINE,
     build_extract_report_prompt,

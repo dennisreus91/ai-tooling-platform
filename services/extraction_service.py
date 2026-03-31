@@ -90,6 +90,27 @@ def _apply_minimum_structure(data: dict[str, Any]) -> dict[str, Any]:
     return merge(base, data)
 
 
+def _coerce_known_field_shapes(data: dict[str, Any]) -> None:
+    """
+    Null-safe coercie voor velden met bekende vormverschillen uit LLM-output.
+    """
+    summary_value = data.get("samenvatting_huidige_maatregelen")
+    if summary_value is None:
+        data["samenvatting_huidige_maatregelen"] = []
+    elif isinstance(summary_value, list):
+        data["samenvatting_huidige_maatregelen"] = [str(item) for item in summary_value]
+    elif isinstance(summary_value, str):
+        text = summary_value.strip()
+        data["samenvatting_huidige_maatregelen"] = [text] if text else []
+    elif isinstance(summary_value, dict):
+        flattened: list[str] = []
+        for key, value in summary_value.items():
+            flattened.append(f"{key}: {value}")
+        data["samenvatting_huidige_maatregelen"] = flattened
+    else:
+        data["samenvatting_huidige_maatregelen"] = [str(summary_value)]
+
+
 def _collect_missing_fields(data: dict[str, Any]) -> None:
     """
     Markeer kritieke velden als missing wanneer ze nog leeg zijn.
@@ -167,6 +188,7 @@ def extract_woningmodel_from_payload(payload: dict[str, Any]) -> WoningModel:
 
     raw = deepcopy(payload)
     structured = _apply_minimum_structure(raw)
+    _coerce_known_field_shapes(structured)
     _ensure_extractie_meta(structured)
     _collect_missing_fields(structured)
     _validate_against_mapping_structure(structured)

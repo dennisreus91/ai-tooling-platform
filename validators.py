@@ -109,16 +109,35 @@ def validate_woningmodel(data: dict[str, Any] | WoningModel) -> WoningModel:
     ontbrekende inhoudelijke velden mogen geen harde fout geven,
     maar technische structuurfouten wel.
     """
+    def _dedupe(values: list[str]) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for value in values:
+            if value not in seen:
+                seen.add(value)
+                result.append(value)
+        return result
+
+    if isinstance(data, dict):
+        meta = data.setdefault("extractie_meta", {})
+        confidence = meta.get("confidence")
+        if confidence is not None:
+            try:
+                confidence_f = float(confidence)
+                meta["confidence"] = max(0.0, min(1.0, confidence_f))
+            except (TypeError, ValueError):
+                meta["confidence"] = 0.0
+
     try:
         model = data if isinstance(data, WoningModel) else WoningModel.model_validate(data)
     except ValidationError as exc:
         raise ValueError(f"invalid_woningmodel: {exc}") from exc
 
     # Deduplicatie van extractiemeta
-    model.extractie_meta.missing_fields = sorted(set(model.extractie_meta.missing_fields))
-    model.extractie_meta.assumptions = sorted(set(model.extractie_meta.assumptions))
-    model.extractie_meta.uncertainties = sorted(set(model.extractie_meta.uncertainties))
-    model.extractie_meta.source_sections_found = sorted(set(model.extractie_meta.source_sections_found))
+    model.extractie_meta.missing_fields = _dedupe(model.extractie_meta.missing_fields)
+    model.extractie_meta.assumptions = _dedupe(model.extractie_meta.assumptions)
+    model.extractie_meta.uncertainties = _dedupe(model.extractie_meta.uncertainties)
+    model.extractie_meta.source_sections_found = _dedupe(model.extractie_meta.source_sections_found)
 
     # Confidence clamp
     if model.extractie_meta.confidence < 0:
@@ -137,8 +156,8 @@ def validate_woningmodel(data: dict[str, Any] | WoningModel) -> WoningModel:
         )
 
     # Opnieuw dedupliceren na aanvulling
-    model.extractie_meta.missing_fields = sorted(set(model.extractie_meta.missing_fields))
-    model.extractie_meta.uncertainties = sorted(set(model.extractie_meta.uncertainties))
+    model.extractie_meta.missing_fields = _dedupe(model.extractie_meta.missing_fields)
+    model.extractie_meta.uncertainties = _dedupe(model.extractie_meta.uncertainties)
 
     return model
 
