@@ -11,13 +11,13 @@ from services.config_service import (
 )
 
 
-def _safe_float(value: Any, default: float = 0.0) -> float:
+def _safe_float(value: Any) -> float | None:
     try:
         if isinstance(value, str):
             value = value.replace(",", ".").strip()
         return float(value)
     except (TypeError, ValueError):
-        return default
+        return None
 
 
 def _label_from_ep2(ep2: float) -> str:
@@ -96,16 +96,16 @@ def _estimate_measure_ep2_reduction(measure: dict[str, Any]) -> float:
 
 def _estimate_measure_investment(measure: dict[str, Any]) -> float:
     per_unit = _safe_float(measure.get("investment_per_unit_eur"))
-    if per_unit > 0:
+    if per_unit is not None and per_unit > 0:
         return round(per_unit, 2)
 
     bandwidth = measure.get("investment_bandwidth_eur", {})
     low = _safe_float(bandwidth.get("min"))
     high = _safe_float(bandwidth.get("max"))
-    if low > 0 and high > 0:
+    if low is not None and high is not None and low > 0 and high > 0:
         return round((low + high) / 2.0, 2)
 
-    return 1000.0
+    return 0.0
 
 
 def _estimate_monthly_saving(total_reduction_ep2: float, measure_count: int) -> float:
@@ -179,7 +179,12 @@ class GeminiScenarioCalculator(ScenarioCalculator):
         current_label: str | None = None,
     ) -> ScenarioResult:
         selected_measures = scenario.ordered_measure_ids or scenario.measure_ids
-        current_ep2 = _safe_float(current_ep2, default=320.0)
+        current_ep2_numeric = _safe_float(current_ep2)
+        if current_ep2_numeric is None:
+            raise ValueError(
+                "current_ep2_kwh_m2 ontbreekt of is ongeldig; scenario-calculatie gebruikt geen backupwaarde."
+            )
+        current_ep2 = current_ep2_numeric
 
         if current_label is None:
             current_label = _label_from_ep2(current_ep2)
@@ -198,7 +203,12 @@ class GeminiScenarioCalculator(ScenarioCalculator):
                 continue
 
             total_reduction += _estimate_measure_ep2_reduction(measure)
-            total_investment += _estimate_measure_investment(measure)
+            estimated_investment = _estimate_measure_investment(measure)
+            total_investment += estimated_investment
+            if estimated_investment == 0.0:
+                uncertainties.append(
+                    f"Maatregel '{measure['canonical_name']}' heeft geen investering in de bibliotheek; geen vervangende backupwaarde toegepast."
+                )
 
             assumptions.append(
                 f"Maatregel '{measure['canonical_name']}' is indicatief doorgerekend op basis van bibliotheekkenmerken zoals trias_step, category en impact_path."

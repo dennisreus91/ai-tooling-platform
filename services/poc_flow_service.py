@@ -50,7 +50,12 @@ def run_poc_flow(constraints: Constraints, woningmodel: WoningModel) -> PocFlowR
     # 1. Normalisatie
     model = normalize_woningmodel(woningmodel)
 
-    current_ep2 = float(model.prestatie.current_ep2_kwh_m2 or 320.0)
+    if model.prestatie.current_ep2_kwh_m2 is None:
+        raise ValueError(
+            "current_ep2_kwh_m2 ontbreekt na normalisatie; POC-flow gebruikt geen hardcoded backupwaarden."
+        )
+
+    current_ep2 = float(model.prestatie.current_ep2_kwh_m2)
     current_label = str(model.prestatie.current_label or _label_from_ep2(current_ep2))
 
     # 2. Maatregelmatching
