@@ -23,7 +23,7 @@ def _estimate_investment(measure: dict[str, Any]) -> float:
     Prioriteit:
     1. investment_per_unit_eur
     2. midden van investment_bandwidth_eur
-    3. fallback 1000
+    3. geen backupwaarde, dan 0 met expliciete onzekerheid
     """
     per_unit = _safe_float(measure.get("investment_per_unit_eur"))
     if per_unit is not None:
@@ -36,7 +36,7 @@ def _estimate_investment(measure: dict[str, Any]) -> float:
     if min_val is not None and max_val is not None:
         return round((min_val + max_val) / 2.0, 2)
 
-    return 1000.0
+    return 0.0
 
 
 def _estimate_ep2_reduction(status: MeasureStatus, measure: dict[str, Any]) -> float:
@@ -92,7 +92,7 @@ def _logic_score(status: MeasureStatus, measure: dict[str, Any]) -> float:
     score = 0.5
 
     trias_step = measure.get("trias_step")
-    priority = _safe_float(measure.get("calculation_priority")) or 99
+    priority = _safe_float(measure.get("calculation_priority"))
 
     # Trias-voorkeur
     if trias_step == 1:
@@ -103,12 +103,13 @@ def _logic_score(status: MeasureStatus, measure: dict[str, Any]) -> float:
         score += 0.05
 
     # Lagere calculation_priority = eerder logisch
-    if priority <= 5:
-        score += 0.15
-    elif priority <= 10:
-        score += 0.10
-    else:
-        score += 0.05
+    if priority is not None:
+        if priority <= 5:
+            score += 0.15
+        elif priority <= 10:
+            score += 0.10
+        else:
+            score += 0.05
 
     # Missing krijgt iets hogere prioriteit dan improvable
     if status.status == "missing":
@@ -161,6 +162,10 @@ def screen_measure_impacts(statuses: list[MeasureStatus]) -> list[MeasureImpact]
             "Definitieve EP2-effecten vereisen scenario-doorrekening met Gemini of later een softwarekoppeling zoals Vabi/Uniec.",
             "Werkelijke investering hangt af van hoeveelheid, woningtype, uitvoeringskeuze en projectspecifieke omstandigheden."
         ]
+        if estimated_investment == 0.0:
+            uncertainties.append(
+                "Voor deze maatregel ontbreekt investeringsdata in de bibliotheek; er is geen hardcoded backupwaarde gebruikt."
+            )
 
         impacts.append(
             MeasureImpact(

@@ -47,7 +47,6 @@ def _apply_assumption_rules(data: dict[str, Any], meta: ExtractieMeta) -> None:
 
     for rule in rules:
         field = rule.get("field")
-        fallback = rule.get("fallback")
         reason = rule.get("reason", "Fallback toegepast.")
         uncertainty_level = rule.get("uncertainty_level", "medium")
         confidence_penalty = float(rule.get("confidence_penalty", 0.0))
@@ -60,18 +59,17 @@ def _apply_assumption_rules(data: dict[str, Any], meta: ExtractieMeta) -> None:
         if current_value is not None:
             continue
 
-        _set_nested(data, field, fallback)
         _append_unique(meta.missing_fields, field)
 
         if report_as_assumption:
             _append_unique(
                 meta.assumptions,
-                f"{field}: fallback '{fallback}' toegepast. Reden: {reason}",
+                f"{field}: geen fallback toegepast. Reden: {reason}",
             )
 
         _append_unique(
             meta.uncertainties,
-            f"{field}: waarde ontbrak, conservatieve aanname toegepast ({uncertainty_level}).",
+            f"{field}: waarde ontbrak; geen hardcoded backup gebruikt ({uncertainty_level}).",
         )
         meta.confidence = max(0.0, round(float(meta.confidence) - confidence_penalty, 4))
 

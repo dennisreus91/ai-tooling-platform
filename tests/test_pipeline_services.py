@@ -1,4 +1,5 @@
 from schemas import Constraints, WoningModel
+import pytest
 from services.measure_matching_service import match_measures
 from services.poc_flow_service import run_poc_flow
 from services.scenario_builder_service import build_scenarios
@@ -196,7 +197,7 @@ def test_choose_best_scenario_prefers_goal_achieving_option():
     assert chosen.reason
 
 
-def test_run_poc_flow_works_with_missing_ep2_via_normalization():
+def test_run_poc_flow_rejects_missing_ep2_without_backup_defaults():
     constraints = Constraints(target_label="C", required_measures=[])
 
     model = WoningModel.model_validate(
@@ -228,9 +229,5 @@ def test_run_poc_flow_works_with_missing_ep2_via_normalization():
         }
     )
 
-    result = run_poc_flow(constraints, model)
-
-    assert result.woningmodel.prestatie.current_ep2_kwh_m2 is not None
-    assert result.final_report.current_ep2_kwh_m2 >= 0
-    assert result.final_report.current_label
-    assert result.final_report.poc_disclaimer
+    with pytest.raises(ValueError, match="geen hardcoded backupwaarden"):
+        run_poc_flow(constraints, model)

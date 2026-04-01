@@ -63,8 +63,9 @@ def test_live_stepwise_pipeline(sample_report_path: Path):
 
     print("\n[STEP 8] scenario-doorrekening")
     constraints = Constraints(target_label="B", required_measures=[])
-    current_ep2 = normalized.prestatie.current_ep2_kwh_m2 or 320.0
-    current_label = normalized.prestatie.current_label or "E"
+    assert normalized.prestatie.current_ep2_kwh_m2 is not None
+    current_ep2 = normalized.prestatie.current_ep2_kwh_m2
+    current_label = normalized.prestatie.current_label
 
     calculator = GeminiScenarioCalculator()
     results = [

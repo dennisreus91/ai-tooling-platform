@@ -16,13 +16,13 @@ def _label_rank(label: str) -> int:
     return int(ranks.get(label, 999))
 
 
-def _safe_float(value: Any, default: float = 0.0) -> float:
+def _safe_float(value: Any) -> float | None:
     try:
         if isinstance(value, str):
             value = value.replace(",", ".").strip()
         return float(value)
     except (TypeError, ValueError):
-        return default
+        return None
 
 
 def _measure_count(result: ScenarioResult) -> int:
@@ -69,11 +69,16 @@ def _feasible_sort_key(result: ScenarioResult) -> tuple:
     3. minste maatregelen
     4. hoogste maandbesparing
     """
+    investment = _safe_float(result.total_investment_eur)
+    monthly_savings = _safe_float(result.monthly_savings_eur)
+
     return (
-        _safe_float(result.total_investment_eur, default=999999.0),
+        investment is None,
+        investment if investment is not None else 0.0,
         _scenario_logic_penalty(result),
         _measure_count(result),
-        -_safe_float(result.monthly_savings_eur, default=0.0),
+        monthly_savings is None,
+        -(monthly_savings if monthly_savings is not None else 0.0),
     )
 
 
@@ -86,11 +91,16 @@ def _fallback_sort_key(result: ScenarioResult) -> tuple:
     3. laagste logica-penalty
     4. hoogste maandbesparing
     """
+    investment = _safe_float(result.total_investment_eur)
+    monthly_savings = _safe_float(result.monthly_savings_eur)
+
     return (
         _label_rank(result.expected_label),
-        _safe_float(result.total_investment_eur, default=999999.0),
+        investment is None,
+        investment if investment is not None else 0.0,
         _scenario_logic_penalty(result),
-        -_safe_float(result.monthly_savings_eur, default=0.0),
+        monthly_savings is None,
+        -(monthly_savings if monthly_savings is not None else 0.0),
     )
 
 
