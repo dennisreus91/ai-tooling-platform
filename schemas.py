@@ -238,11 +238,9 @@ class WoningModel(BaseModel):
     extractie_meta: ExtractieMeta = Field(default_factory=ExtractieMeta)
 
 
+
+
 class Measure(BaseModel):
-    """
-    Legacy / compatibility schema voor eerdere POC-stappen.
-    Niet primair leidend voor de nieuwe scenarioflow.
-    """
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1)
@@ -252,9 +250,6 @@ class Measure(BaseModel):
 
 
 class ExtractedReport(BaseModel):
-    """
-    Legacy / compatibility schema voor eerdere POC-stappen.
-    """
     model_config = ConfigDict(extra="forbid")
 
     current_label: str = Field(..., min_length=1)
@@ -322,34 +317,30 @@ class ChosenScenario(BaseModel):
     goal_achieved: bool
 
 
-class OptimizationMeasure(BaseModel):
-    """
-    Legacy / compatibility schema voor eerdere optimalisatieflow.
-    """
+class MeasureOverview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(..., min_length=1)
-    cost: float = Field(..., ge=0)
-    score_gain: float = Field(..., gt=0)
-    rationale: str | None = None
+    missing: List[MeasureStatus] = Field(default_factory=list)
+    improvable: List[MeasureStatus] = Field(default_factory=list)
+    combined: List[MeasureStatus] = Field(default_factory=list)
 
 
-class OptimizationResult(BaseModel):
-    """
-    Legacy / compatibility schema voor eerdere optimalisatieflow.
-    """
+class ScenarioAdvice(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    selected_measures: List[OptimizationMeasure] = Field(default_factory=list)
-    total_cost: float = Field(..., ge=0)
-    score_increase: float = Field(..., ge=0)
-    expected_label: str = Field(..., min_length=1)
-    resulting_score: float = Field(..., ge=0)
-    expected_ep2_kwh_m2: float = Field(..., ge=0)
-    monthly_savings_eur: float = Field(..., ge=0)
-    expected_property_value_gain_eur: float = Field(..., ge=0)
-    calculation_notes: List[str] = Field(default_factory=list)
-    summary: str | None = None
+    scenario_id: str
+    scenario_name: str
+    expected_label: str
+    expected_ep2_kwh_m2: float
+    selected_measures: List[str] = Field(default_factory=list)
+    logical_order: List[str] = Field(default_factory=list)
+    total_investment_eur: float = Field(ge=0.0)
+    monthly_savings_eur: float = Field(ge=0.0)
+    expected_property_value_gain_eur: float = Field(ge=0.0)
+    motivation: str
+    assumptions: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
+    methodiek_bronnen: List[str] = Field(default_factory=list)
 
 
 class FinalReport(BaseModel):
@@ -379,8 +370,6 @@ class PocFlowResult(BaseModel):
     constraints: Constraints
     woningmodel: WoningModel
     measure_statuses: List[MeasureStatus]
-    measure_impacts: List[MeasureImpact]
-    scenarios: List[ScenarioDefinition]
-    scenario_results: List[ScenarioResult]
-    chosen_scenario: ChosenScenario
+    measure_overview: MeasureOverview
+    scenario_advice: ScenarioAdvice
     final_report: FinalReport

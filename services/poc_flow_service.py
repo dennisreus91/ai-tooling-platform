@@ -1,112 +1,83 @@
 from __future__ import annotations
 
-from schemas import Constraints, PocFlowResult, WoningModel
-from services.measure_impact_service import screen_measure_impacts
+import os
+
+from gemini_service import get_scenario_advice_with_gemini
+from schemas import Constraints, MeasureOverview, PocFlowResult, WoningModel
 from services.measure_matching_service import match_measures
 from services.normalization_service import normalize_woningmodel
-from services.report_generation_service import build_final_report
-from services.scenario_builder_service import build_scenarios
-from services.scenario_calculation_service import GeminiScenarioCalculator
-from services.scenario_selection_service import choose_best_scenario
 from services.config_service import get_label_boundaries
+from services.report_generation_service import build_final_report
+from validators import label_from_ep2
 
 
-def _label_from_ep2(ep2: float) -> str:
-    """
-    Deterministische labelmapping op basis van labelgrenzen.json.
-    """
-    config = get_label_boundaries()
-    boundaries = config.get("boundaries", [])
+def _build_measure_overview(statuses):
+    missing = [s for s in statuses if s.status == "missing"]
+    improvable = [s for s in statuses if s.status == "improvable"]
+    combined = missing + improvable
+    return MeasureOverview(missing=missing, improvable=improvable, combined=combined)
 
-    for boundary in boundaries:
-        min_val = boundary.get("ep2_min_inclusive")
-        max_val = boundary.get("ep2_max_exclusive")
 
-        lower_ok = True if min_val is None else ep2 >= float(min_val)
-        upper_ok = True if max_val is None else ep2 < float(max_val)
 
-        if lower_ok and upper_ok:
-            return boundary["label"]
 
-    raise ValueError(f"Geen labelgrens gevonden voor EP2={ep2}")
-
+def _estimate_ep2_from_label(label: str) -> float | None:
+    boundaries = get_label_boundaries().get("boundaries", [])
+    normalized = (label or "").strip().upper()
+    for rule in boundaries:
+        if str(rule.get("label", "")).upper() != normalized:
+            continue
+        min_v = rule.get("ep2_min_inclusive")
+        max_v = rule.get("ep2_max_exclusive")
+        if min_v is not None and max_v is not None:
+            return float(min_v + (max_v - min_v) / 2.0)
+        if min_v is not None:
+            return float(min_v + 10.0)
+        if max_v is not None:
+            return max(float(max_v) - 10.0, 0.0)
+    return None
 
 def run_poc_flow(constraints: Constraints, woningmodel: WoningModel) -> PocFlowResult:
-    """
-    Orchestratie van de POC-flow na extractie.
-
-    Verwachte volgorde:
-    1. normalisatie van woningmodel
-    2. maatregelmatching
-    3. maatregel-impact screening
-    4. scenario-opbouw
-    5. scenario-doorrekening
-    6. scenario-selectie
-    7. rapportage
-
-    Deze service verwacht een reeds geëxtraheerd WoningModel als input.
-    De extractiestap zelf hoort in extraction_service.py of in een bovenliggende orchestrationlaag.
-    """
-    # 1. Normalisatie
     model = normalize_woningmodel(woningmodel)
 
-    if model.prestatie.current_ep2_kwh_m2 is None:
-        raise ValueError(
-            "current_ep2_kwh_m2 ontbreekt na normalisatie; POC-flow gebruikt geen hardcoded backupwaarden."
-        )
+    current_ep2_raw = model.prestatie.current_ep2_kwh_m2
+    current_label_raw = model.prestatie.current_label
 
-    current_ep2 = float(model.prestatie.current_ep2_kwh_m2)
-    current_label = str(model.prestatie.current_label or _label_from_ep2(current_ep2))
+    if current_ep2_raw is None and current_label_raw is None:
+        raise ValueError("missing_ep2_data: current_ep2_kwh_m2 en current_label ontbreken; flow kan niet starten.")
 
-    # 2. Maatregelmatching
+    if current_ep2_raw is None and current_label_raw is not None:
+        estimated = _estimate_ep2_from_label(str(current_label_raw))
+        if estimated is None:
+            raise ValueError("missing_ep2_data: current_ep2_kwh_m2 ontbreekt en label kan niet naar EP2 worden geschat.")
+        current_ep2 = estimated
+        if "prestatie.current_ep2_kwh_m2" not in model.extractie_meta.assumptions:
+            model.extractie_meta.assumptions.append("prestatie.current_ep2_kwh_m2 geschat vanuit current_label via labelgrenzen.json.")
+    else:
+        current_ep2 = float(current_ep2_raw)
+
+    current_label = str(current_label_raw or label_from_ep2(current_ep2))
+
     statuses = match_measures(model)
+    overview = _build_measure_overview(statuses)
 
-    # 3. Maatregel-impact screening
-    impacts = screen_measure_impacts(statuses)
+    scenario_advice = get_scenario_advice_with_gemini(
+        constraints=constraints,
+        woningmodel=model,
+        measure_overview=overview,
+        file_search_store=os.getenv("GEMINI_FILE_SEARCH_STORE"),
+    )
 
-    # 4. Scenario-opbouw
-    scenarios = build_scenarios(impacts)
-    if not scenarios:
-        raise ValueError("Er konden geen scenario's worden opgebouwd op basis van de huidige maatregelstatus en impactscreening.")
-
-    # 5. Scenario-doorrekening
-    calculator = GeminiScenarioCalculator()
-    results = [
-        calculator.calculate(
-            scenario=scenario,
-            current_ep2=current_ep2,
-            current_label=current_label,
-        )
-        for scenario in scenarios
-    ]
-    if not results:
-        raise ValueError("Er zijn geen scenarioresultaten gegenereerd.")
-
-    # 6. Scenario-selectie
-    chosen = choose_best_scenario(results, constraints.target_label)
-
-    scenario_map = {result.scenario_id: result for result in results}
-    chosen_result = scenario_map.get(chosen.scenario_id)
-    if chosen_result is None:
-        raise ValueError(
-            f"Gekozen scenario '{chosen.scenario_id}' is niet teruggevonden in scenarioresultaten."
-        )
-
-    # 7. Rapportage
     final_report = build_final_report(
         current_label=current_label,
         current_ep2=current_ep2,
-        chosen=chosen,
-        scenario_result=chosen_result,
+        scenario_advice=scenario_advice,
     )
 
     return PocFlowResult(
         constraints=constraints,
         woningmodel=model,
         measure_statuses=statuses,
-        measure_impacts=impacts,
-        scenarios=scenarios,
-        scenario_results=results,
-        chosen_scenario=chosen,
+        measure_overview=overview,
+        scenario_advice=scenario_advice,
         final_report=final_report,
     )

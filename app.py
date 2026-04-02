@@ -148,9 +148,8 @@ def create_app() -> Flask:
             # Behoud eindrapport en kernoutput, maar verberg zware debug/tussenlagen
             response_data.pop("woningmodel", None)
             response_data.pop("measure_statuses", None)
-            response_data.pop("measure_impacts", None)
-            response_data.pop("scenarios", None)
-            response_data.pop("scenario_results", None)
+            response_data.pop("measure_overview", None)
+            response_data.pop("scenario_advice", None)
 
         return {
             "status": "completed",
