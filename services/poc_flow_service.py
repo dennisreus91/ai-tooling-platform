@@ -64,7 +64,7 @@ def run_poc_flow(constraints: Constraints, woningmodel: WoningModel) -> PocFlowR
         constraints=constraints,
         woningmodel=model,
         measure_overview=overview,
-        file_search_store=os.getenv("GEMINI_FILE_SEARCH_STORE"),
+        file_search_store=os.getenv("GEMINI_METHOD_FILE_SEARCH_STORE"),
     )
 
     final_report = build_final_report(
