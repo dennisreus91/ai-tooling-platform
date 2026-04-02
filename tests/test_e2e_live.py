@@ -20,5 +20,5 @@ def test_live_e2e_pipeline(sample_report_path: Path):
     assert result.final_report.current_label
     assert result.final_report.new_label
     assert result.final_report.new_ep2_kwh_m2 is not None
-    assert result.chosen_scenario.scenario_id
+    assert result.scenario_advice.scenario_id
     assert result.final_report.poc_disclaimer

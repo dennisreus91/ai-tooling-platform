@@ -76,9 +76,8 @@ def test_run_poc_flow_completes_successfully_debug_true(
             "chosen_scenario": {"scenario_id": "GEBALANCEERD"},
             "woningmodel": {"prestatie": {"current_label": "D"}},
             "measure_statuses": [],
-            "measure_impacts": [],
-            "scenarios": [],
-            "scenario_results": [],
+            "measure_overview": {"missing": [], "improvable": [], "combined": []},
+            "scenario_advice": {"scenario_id": "GEMINI_GEBALANCEERD"},
         }
     )
 
@@ -131,9 +130,8 @@ def test_run_poc_flow_hides_debug_fields_when_debug_false(
             "chosen_scenario": {"scenario_id": "GEBALANCEERD"},
             "woningmodel": {"prestatie": {"current_label": "D"}},
             "measure_statuses": [{"measure_id": "dakisolatie"}],
-            "measure_impacts": [{"measure_id": "dakisolatie"}],
-            "scenarios": [{"scenario_id": "GEBALANCEERD"}],
-            "scenario_results": [{"scenario_id": "GEBALANCEERD"}],
+            "measure_overview": {"missing": [], "improvable": [], "combined": []},
+            "scenario_advice": {"scenario_id": "GEMINI_GEBALANCEERD"},
         }
     )
 
@@ -144,9 +142,8 @@ def test_run_poc_flow_hides_debug_fields_when_debug_false(
     assert data["status"] == "completed"
     assert "woningmodel" not in data["data"]
     assert "measure_statuses" not in data["data"]
-    assert "measure_impacts" not in data["data"]
-    assert "scenarios" not in data["data"]
-    assert "scenario_results" not in data["data"]
+    assert "measure_overview" not in data["data"]
+    assert "scenario_advice" not in data["data"]
     assert data["data"]["final_report"]["new_label"] == "B"
 
 
