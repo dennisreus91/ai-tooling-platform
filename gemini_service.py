@@ -10,6 +10,7 @@ from typing import Any
 
 import requests
 from google import genai
+from google.genai import types
 
 from prompts import SYSTEM_INSTRUCTION_BASELINE, build_extract_report_prompt, build_scenario_advice_prompt
 from schemas import Constraints, MeasureOverview, ScenarioAdvice, WoningModel
@@ -89,7 +90,7 @@ def _parse_llm_json(raw_text: str, context: str) -> Any:
     raise RuntimeError(f"invalid_llm_json: {context} did not return valid JSON.")
 
 
-def _generate_json(*, model: str, contents: list[Any], context_name: str, tools: list[dict[str, Any]] | None = None) -> Any:
+def _generate_json(*, model: str, contents: list[Any], context_name: str, tools: list[Any] | None = None) -> Any:
     client = _get_gemini_client()
     config: dict[str, Any] = {"system_instruction": SYSTEM_INSTRUCTION_BASELINE}
     if tools:
@@ -171,8 +172,15 @@ def get_scenario_advice_with_gemini(
         "trias_structuur": get_trias_structure(),
     }
 
-    tools = [{"file_search": {}}] if file_search_store else None
+    tools = None
     if file_search_store:
+        tools = [
+            types.Tool(
+                file_search=types.FileSearch(
+                    file_search_store_names=[file_search_store]
+                )
+            )
+        ]
         input_payload["file_search_store"] = file_search_store
 
     raw = _generate_json(
