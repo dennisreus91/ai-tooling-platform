@@ -58,3 +58,27 @@ def test_final_report_required_fields():
 def test_constraints_required_measures_string_normalized_to_list():
     constraints = Constraints(target_label="A", required_measures="dakisolatie")
     assert constraints.required_measures == ["dakisolatie"]
+
+
+def test_maatregel_extract_null_collections_are_coerced():
+    model = WoningModel.model_validate(
+        {
+            "prestatie": {"current_ep2_kwh_m2": 200},
+            "maatregelen": [
+                {
+                    "maatregel_naam_origineel": "Test",
+                    "huidige_situatie": None,
+                    "voorgestelde_situatie": None,
+                    "relevante_parameters": None,
+                    "maatregel_waarden": None,
+                }
+            ],
+            "extractie_meta": {},
+        }
+    )
+
+    measure = model.maatregelen[0]
+    assert measure.huidige_situatie == {}
+    assert measure.voorgestelde_situatie == {}
+    assert measure.relevante_parameters == {}
+    assert measure.maatregel_waarden == []

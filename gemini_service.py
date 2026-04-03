@@ -14,8 +14,8 @@ from google.genai import types
 
 from prompts import SYSTEM_INSTRUCTION_BASELINE, build_extract_report_prompt, build_scenario_advice_prompt
 from schemas import Constraints, MeasureOverview, ScenarioAdvice, WoningModel
-from services.config_service import get_scenario_templates, get_trias_structure, get_woning_schema
-from validators import validate_woningmodel
+from services.config_service import get_label_boundaries, get_scenario_templates, get_trias_structure, get_woning_schema
+from services.extraction_service import extract_woningmodel_from_payload
 
 DEFAULT_TIMEOUT_SECONDS = 60
 
@@ -112,13 +112,28 @@ def extract_woningmodel_data(uploaded_file: Any) -> WoningModel:
     )
     if not isinstance(payload, dict):
         raise RuntimeError("invalid_llm_json: Gemini woningmodel extraction payload should be an object.")
-    return validate_woningmodel(payload)
+    return extract_woningmodel_from_payload(payload)
 
 
 
 
 def _normalize_scenario_advice_payload(raw: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(raw)
+    allowed_fields = {
+        "scenario_id",
+        "scenario_name",
+        "expected_label",
+        "expected_ep2_kwh_m2",
+        "selected_measures",
+        "logical_order",
+        "total_investment_eur",
+        "monthly_savings_eur",
+        "expected_property_value_gain_eur",
+        "motivation",
+        "assumptions",
+        "uncertainties",
+        "methodiek_bronnen",
+    }
+    normalized = {key: value for key, value in raw.items() if key in allowed_fields}
 
     def _normalize_measures(values: Any) -> list[str]:
         result: list[str] = []
@@ -147,6 +162,28 @@ def _normalize_scenario_advice_payload(raw: dict[str, Any]) -> dict[str, Any]:
         value = normalized.get(key)
         if value is None:
             normalized[key] = 0.0
+
+    if normalized.get("expected_ep2_kwh_m2") is None:
+        label = normalized.get("expected_label")
+        boundaries = get_label_boundaries().get("boundaries", [])
+        normalized_label = str(label or "").strip().upper()
+        fallback_ep2 = None
+        for rule in boundaries:
+            if str(rule.get("label", "")).upper() != normalized_label:
+                continue
+            min_v = rule.get("ep2_min_inclusive")
+            max_v = rule.get("ep2_max_exclusive")
+            if min_v is not None and max_v is not None:
+                fallback_ep2 = float(min_v + (max_v - min_v) / 2.0)
+            elif min_v is not None:
+                fallback_ep2 = float(min_v + 10.0)
+            elif max_v is not None:
+                fallback_ep2 = max(float(max_v) - 10.0, 0.0)
+            break
+        normalized["expected_ep2_kwh_m2"] = fallback_ep2 if fallback_ep2 is not None else 0.0
+
+    if not isinstance(normalized.get("motivation"), str) or not normalized["motivation"].strip():
+        normalized["motivation"] = "Gemini-output bevatte geen geldige motivatie; fallback toegepast."
 
     return normalized
 

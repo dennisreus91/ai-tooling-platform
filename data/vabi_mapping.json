@@ -690,6 +690,107 @@
         "measure_matching"
       ],
       "fallback_behavior": "null_allowed"
+    },
+    {
+      "id": "R28",
+      "target_field": "woning.projectnaam",
+      "possible_labels": [
+        "Projectnaam",
+        "Project",
+        "Naam project"
+      ],
+      "section_hints": [
+        "Algemeen",
+        "Projectgegevens",
+        "Voorblad"
+      ],
+      "value_type": "string",
+      "required_for": [
+        "reporting"
+      ],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "id": "R29",
+      "target_field": "woning.adres_identificatie",
+      "possible_labels": [
+        "Adres",
+        "Objectadres",
+        "Woningidentificatie",
+        "Objectnummer"
+      ],
+      "section_hints": [
+        "Algemeen",
+        "Projectgegevens",
+        "Objectgegevens"
+      ],
+      "value_type": "string",
+      "required_for": [
+        "reporting"
+      ],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "id": "R30",
+      "target_field": "woning.aantal_bouwlagen",
+      "possible_labels": [
+        "Aantal bouwlagen",
+        "Bouwlagen",
+        "Aantal lagen"
+      ],
+      "section_hints": [
+        "Objectgegevens",
+        "Gebouwkenmerken"
+      ],
+      "pattern_hints": [
+        "bouwlagen\\s*[:=]?\\s*([0-9]+)",
+        "lagen\\s*[:=]?\\s*([0-9]+)"
+      ],
+      "value_type": "int",
+      "required_for": [
+        "scenario_context"
+      ],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "id": "R31",
+      "target_field": "woning.daktype",
+      "possible_labels": [
+        "Daktype",
+        "Type dak",
+        "Dakvorm"
+      ],
+      "section_hints": [
+        "Objectgegevens",
+        "Dak"
+      ],
+      "value_type": "string",
+      "required_for": [
+        "scenario_context"
+      ],
+      "fallback_behavior": "null_allowed"
+    },
+    {
+      "id": "R32",
+      "target_field": "woning.verliesoppervlak_m2",
+      "possible_labels": [
+        "Verliesoppervlak",
+        "Averlies",
+        "Oppervlak verlies"
+      ],
+      "section_hints": [
+        "Schil",
+        "Resultaten",
+        "Objectgegevens"
+      ],
+      "pattern_hints": [
+        "verliesoppervlak.*?([0-9]+[\\.,]?[0-9]*)"
+      ],
+      "value_type": "float",
+      "required_for": [
+        "scenario_context"
+      ],
+      "fallback_behavior": "null_allowed"
     }
   ]
 }

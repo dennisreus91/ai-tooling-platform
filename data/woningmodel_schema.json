@@ -27,7 +27,16 @@
       "type": "object",
       "description": "Algemene woningkenmerken die nodig zijn voor rapportage, aannameregels en scenario-context.",
       "properties": {
+        "projectnaam": {
+          "type": ["string", "null"]
+        },
+        "adres_identificatie": {
+          "type": ["string", "null"]
+        },
         "bouwjaar": {
+          "type": ["integer", "null"]
+        },
+        "renovatiejaar": {
           "type": ["integer", "null"]
         },
         "type": {
@@ -37,6 +46,15 @@
           "type": ["number", "null"]
         },
         "inhoud_m3": {
+          "type": ["number", "null"]
+        },
+        "aantal_bouwlagen": {
+          "type": ["integer", "null"]
+        },
+        "daktype": {
+          "type": ["string", "null"]
+        },
+        "verliesoppervlak_m2": {
           "type": ["number", "null"]
         },
         "bouwperiode": {
@@ -291,6 +309,83 @@
       "description": "Vrije samenvattingslijst van herkende huidige maatregelen of energetische kenmerken.",
       "items": {
         "type": "string"
+      }
+    },
+    "maatregelen": {
+      "type": "array",
+      "description": "Gestructureerde lijst van herkende maatregelen inclusief kwantitatieve waarden en eenheden.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "maatregel_naam_origineel": {
+            "type": ["string", "null"]
+          },
+          "maatregel_type": {
+            "type": ["string", "null"]
+          },
+          "huidige_situatie": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "voorgestelde_situatie": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "betrokken_bouwdelen": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "betrokken_installaties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "relevante_parameters": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "maatregel_waarden": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "parameter_naam": {
+                  "type": ["string", "null"]
+                },
+                "parameter_naam_origineel": {
+                  "type": ["string", "null"]
+                },
+                "waarde": {
+                  "type": ["number", "null"]
+                },
+                "eenheid": {
+                  "type": ["string", "null"]
+                },
+                "waarde_type": {
+                  "type": ["string", "null"]
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "opmerking": {
+            "type": ["string", "null"]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": true
       }
     },
     "extractie_meta": {
