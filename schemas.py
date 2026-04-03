@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 
 AllowedTargetLabel = Literal["next_step", "A", "B", "C", "D", "E", "F", "G"]
@@ -79,10 +79,16 @@ class WoningMeta(BaseModel):
 class WoningInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
+    projectnaam: Optional[str] = None
+    adres_identificatie: Optional[str] = None
     bouwjaar: Optional[int] = None
+    renovatiejaar: Optional[int] = None
     type: Optional[str] = None
     gebruiksoppervlakte_m2: Optional[float] = None
     inhoud_m3: Optional[float] = None
+    aantal_bouwlagen: Optional[int] = None
+    daktype: Optional[str] = None
+    verliesoppervlak_m2: Optional[float] = None
     bouwperiode: Optional[str] = None
     woningtype_brontekst: Optional[str] = None
 
@@ -235,7 +241,51 @@ class WoningModel(BaseModel):
     bouwdelen: BouwdelenInfo = Field(default_factory=BouwdelenInfo)
     installaties: InstallatiesInfo = Field(default_factory=InstallatiesInfo)
     samenvatting_huidige_maatregelen: List[str] = Field(default_factory=list)
+    maatregelen: List["MaatregelExtract"] = Field(default_factory=list)
     extractie_meta: ExtractieMeta = Field(default_factory=ExtractieMeta)
+
+
+class MaatregelWaarde(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    parameter_naam: Optional[str] = None
+    parameter_naam_origineel: Optional[str] = None
+    waarde: Optional[float] = None
+    eenheid: Optional[str] = None
+    waarde_type: Optional[str] = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class MaatregelExtract(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    maatregel_naam_origineel: Optional[str] = None
+    maatregel_type: Optional[str] = None
+    huidige_situatie: Dict[str, Any] = Field(default_factory=dict)
+    voorgestelde_situatie: Dict[str, Any] = Field(default_factory=dict)
+    betrokken_bouwdelen: List[str] = Field(default_factory=list)
+    betrokken_installaties: List[str] = Field(default_factory=list)
+    relevante_parameters: Dict[str, Any] = Field(default_factory=dict)
+    maatregel_waarden: List[MaatregelWaarde] = Field(default_factory=list)
+    opmerking: Optional[str] = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_null_collections(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        normalized = dict(value)
+        for key in ("huidige_situatie", "voorgestelde_situatie", "relevante_parameters"):
+            if normalized.get(key) is None:
+                normalized[key] = {}
+        for key in ("betrokken_bouwdelen", "betrokken_installaties", "maatregel_waarden"):
+            if normalized.get(key) is None:
+                normalized[key] = []
+        if normalized.get("confidence") is None:
+            normalized["confidence"] = 0.0
+        return normalized
 
 
 

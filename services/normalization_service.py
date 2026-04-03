@@ -79,6 +79,9 @@ def _normalize_numeric_fields(data: dict[str, Any], meta: ExtractieMeta) -> None
         "prestatie.current_ep2_kwh_m2",
         "woning.gebruiksoppervlakte_m2",
         "woning.bouwjaar",
+        "woning.renovatiejaar",
+        "woning.aantal_bouwlagen",
+        "woning.verliesoppervlak_m2",
         "bouwdelen.dak.rc",
         "bouwdelen.gevel.rc",
         "bouwdelen.vloer.rc",
@@ -102,7 +105,7 @@ def _normalize_numeric_fields(data: dict[str, Any], meta: ExtractieMeta) -> None
             if isinstance(value, str):
                 value = value.replace(",", ".").strip()
             numeric_value: int | float = float(value)
-            if path.endswith("bouwjaar"):
+            if path.endswith(("bouwjaar", "renovatiejaar", "aantal_bouwlagen")):
                 numeric_value = int(numeric_value)
             _set_nested(data, path, numeric_value)
         except (TypeError, ValueError):
@@ -110,6 +113,33 @@ def _normalize_numeric_fields(data: dict[str, Any], meta: ExtractieMeta) -> None
             _append_unique(meta.uncertainties, f"{path}: niet parsebaar naar numerieke waarde; op null gezet.")
             _append_unique(meta.missing_fields, path)
             meta.confidence = max(0.0, round(float(meta.confidence) - 0.05, 4))
+
+    maatregelen = data.get("maatregelen", [])
+    if not isinstance(maatregelen, list):
+        return
+
+    for index, measure in enumerate(maatregelen):
+        if not isinstance(measure, dict):
+            continue
+        values = measure.get("maatregel_waarden")
+        if not isinstance(values, list):
+            continue
+        for value_index, raw in enumerate(values):
+            if not isinstance(raw, dict):
+                continue
+            numeric_value = raw.get("waarde")
+            if numeric_value is None:
+                continue
+            try:
+                if isinstance(numeric_value, str):
+                    numeric_value = numeric_value.replace(",", ".").strip()
+                raw["waarde"] = float(numeric_value)
+            except (TypeError, ValueError):
+                raw["waarde"] = None
+                _append_unique(
+                    meta.uncertainties,
+                    f"maatregelen[{index}].maatregel_waarden[{value_index}].waarde: niet parsebaar naar numerieke waarde; op null gezet.",
+                )
 
 
 def _normalize_boolean_fields(data: dict[str, Any], meta: ExtractieMeta) -> None:

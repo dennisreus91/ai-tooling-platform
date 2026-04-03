@@ -61,10 +61,11 @@ def _ensure_extractie_meta(data: dict[str, Any]) -> None:
         data["extractie_meta"] = {}
 
     meta = data["extractie_meta"]
-    meta.setdefault("confidence", 0.0)
-    meta.setdefault("missing_fields", [])
-    meta.setdefault("assumptions", [])
-    meta.setdefault("uncertainties", [])
+    if not isinstance(meta.get("confidence"), (int, float)):
+        meta["confidence"] = 0.0
+    for key in ("missing_fields", "assumptions", "uncertainties"):
+        if not isinstance(meta.get(key), list):
+            meta[key] = []
 
 
 def _append_unique(lst: list[str], value: str) -> None:
@@ -110,6 +111,74 @@ def _coerce_known_field_shapes(data: dict[str, Any]) -> None:
     else:
         data["samenvatting_huidige_maatregelen"] = [str(summary_value)]
 
+    maatregelen_value = data.get("maatregelen")
+    if maatregelen_value is None:
+        data["maatregelen"] = []
+    elif isinstance(maatregelen_value, dict):
+        data["maatregelen"] = [maatregelen_value]
+    elif isinstance(maatregelen_value, list):
+        normalized_measures: list[dict[str, Any]] = []
+        for item in maatregelen_value:
+            if isinstance(item, dict):
+                normalized_measures.append(item)
+            elif isinstance(item, str):
+                text = item.strip()
+                if text:
+                    normalized_measures.append({"maatregel_naam_origineel": text})
+        data["maatregelen"] = normalized_measures
+    else:
+        data["maatregelen"] = []
+
+    if not data["maatregelen"] and data.get("samenvatting_huidige_maatregelen"):
+        data["maatregelen"] = [
+            {"maatregel_naam_origineel": measure}
+            for measure in data["samenvatting_huidige_maatregelen"]
+            if isinstance(measure, str) and measure.strip()
+        ]
+
+    for measure in data["maatregelen"]:
+        values = measure.get("maatregel_waarden")
+        if values is None:
+            measure["maatregel_waarden"] = []
+            continue
+        if isinstance(values, dict):
+            values = [values]
+        if not isinstance(values, list):
+            measure["maatregel_waarden"] = []
+            continue
+
+        normalized_values: list[dict[str, Any]] = []
+        for raw_value in values:
+            if not isinstance(raw_value, dict):
+                continue
+
+            entry = dict(raw_value)
+            numeric = entry.get("waarde")
+            if isinstance(numeric, str):
+                try:
+                    entry["waarde"] = float(numeric.replace(",", ".").strip())
+                except (TypeError, ValueError):
+                    entry["waarde"] = None
+            elif not isinstance(numeric, (int, float)) and numeric is not None:
+                entry["waarde"] = None
+
+            unit = entry.get("eenheid")
+            if unit is not None and not isinstance(unit, str):
+                entry["eenheid"] = str(unit)
+
+            conf = entry.get("confidence")
+            if conf is None:
+                entry["confidence"] = 0.0
+            else:
+                try:
+                    entry["confidence"] = max(0.0, min(1.0, float(conf)))
+                except (TypeError, ValueError):
+                    entry["confidence"] = 0.0
+
+            normalized_values.append(entry)
+
+        measure["maatregel_waarden"] = normalized_values
+
 
 def _collect_missing_fields(data: dict[str, Any]) -> None:
     """
@@ -124,6 +193,8 @@ def _collect_missing_fields(data: dict[str, Any]) -> None:
         "woning.gebruiksoppervlakte_m2",
         "woning.type",
         "woning.bouwjaar",
+        "woning.aantal_bouwlagen",
+        "woning.daktype",
         "installaties.verwarming.type",
         "installaties.ventilatie.type",
     ]
