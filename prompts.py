@@ -23,6 +23,8 @@ Gebruik methodiekconsistentie gebaseerd op:
 - RVO voorbeeldwoningen
 
 BELANGRIJK:
+- Gebruik altijd de methodiekdocumenten uit file_search_store als primaire bron (minimaal ISSO 82.1 en NTA 8800)
+- Bereken expected_ep2_kwh_m2 exclusief volgens de NTA 8800-methodiek
 - Dit is een indicatieve POC (geen officiële labelregistratie)
 - Blijf technisch en expliciteer aannames en onzekerheden
 """
@@ -77,6 +79,8 @@ def build_scenario_advice_prompt() -> str:
         "- Maak meerdere scenario-opties intern en kies de beste optie voor doel-label + Trias\n"
         "- Respecteer opgegeven required_measures\n"
         "- Gebruik alleen maatregelen uit het meegegeven measure_overview\n"
+        "- Gebruik verplicht de file_search_store methodiekdocumenten (ISSO 82.1 en NTA 8800) bij scenario-ontwikkeling\n"
+        "- Bereken expected_ep2_kwh_m2 exclusief volgens de NTA 8800-methodiek (geen alternatieve rekenmethoden)\n"
         "- Gebruik waar beschikbaar resolved_quantity_value * investment_per_unit_eur voor total_investment_eur\n"
         "- Geef alleen JSON terug\n\n"
         f"{TRIAS_ENERGETICA_INSTRUCTIE.strip()}\n\n"
