@@ -18,9 +18,7 @@ STRIKTE OUTPUTREGELS:
 METHODOLOGY_SOURCE_GUIDANCE = """
 Gebruik methodiekconsistentie gebaseerd op:
 - ISSO 82.1
-- ISSO 82.2
 - NTA 8800
-- RVO voorbeeldwoningen
 
 BELANGRIJK:
 - Gebruik altijd de methodiekdocumenten uit file_search_store als primaire bron (minimaal ISSO 82.1 en NTA 8800)
