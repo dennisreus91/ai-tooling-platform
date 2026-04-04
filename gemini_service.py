@@ -12,9 +12,15 @@ import requests
 from google import genai
 from google.genai import types
 
-from prompts import SYSTEM_INSTRUCTION_BASELINE, build_extract_report_prompt, build_scenario_advice_prompt
-from schemas import Constraints, MeasureOverview, ScenarioAdvice, WoningModel
+from prompts import (
+    SYSTEM_INSTRUCTION_BASELINE,
+    build_extract_report_prompt,
+    build_measure_gap_prompt,
+    build_scenario_advice_prompt,
+)
+from schemas import Constraints, MeasureOverview, MeasureStatus, ScenarioAdvice, WoningModel
 from services.config_service import get_label_boundaries, get_scenario_templates, get_trias_structure, get_woning_schema
+from services.config_service import get_measures_library
 from services.extraction_service import extract_woningmodel_from_payload
 
 DEFAULT_TIMEOUT_SECONDS = 60
@@ -115,6 +121,113 @@ def extract_woningmodel_data(uploaded_file: Any) -> WoningModel:
     return extract_woningmodel_from_payload(payload)
 
 
+def _normalize_measure_gap_item(raw: Any) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+
+    normalized = dict(raw)
+    for key in ("measure_id", "canonical_name", "status", "reason"):
+        if normalized.get(key) is None:
+            normalized[key] = ""
+
+    status = str(normalized.get("status", "")).strip().lower()
+    if status not in {"missing", "improvable", "sufficient", "not_applicable", "capacity_limited"}:
+        status = "missing"
+    normalized["status"] = status
+
+    if not isinstance(normalized.get("evidence_fields"), list):
+        normalized["evidence_fields"] = []
+    if not isinstance(normalized.get("current_values_snapshot"), dict):
+        normalized["current_values_snapshot"] = {}
+    if not isinstance(normalized.get("assumptions"), list):
+        normalized["assumptions"] = []
+    if not isinstance(normalized.get("uncertainties"), list):
+        normalized["uncertainties"] = []
+
+    gap_delta = normalized.get("gap_delta")
+    if gap_delta is not None:
+        try:
+            normalized["gap_delta"] = float(gap_delta)
+        except (TypeError, ValueError):
+            normalized["gap_delta"] = None
+
+    return normalized
+
+
+def _normalize_measure_gap_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    missing_raw = raw.get("missing")
+    improvable_raw = raw.get("improvable")
+    combined_raw = raw.get("combined")
+
+    def _normalize_collection(values: Any) -> list[dict[str, Any]]:
+        if not isinstance(values, list):
+            return []
+        result: list[dict[str, Any]] = []
+        for item in values:
+            normalized_item = _normalize_measure_gap_item(item)
+            if normalized_item is not None:
+                result.append(normalized_item)
+        return result
+
+    missing = _normalize_collection(missing_raw)
+    improvable = _normalize_collection(improvable_raw)
+    combined = _normalize_collection(combined_raw)
+
+    if not combined:
+        combined = [*missing, *improvable]
+
+    return {
+        "missing": missing,
+        "improvable": improvable,
+        "combined": combined,
+    }
+
+
+def get_measure_gap_analysis_with_gemini(
+    *,
+    woningmodel: WoningModel,
+    file_search_store: str | None = None,
+) -> tuple[list[MeasureStatus], MeasureOverview]:
+    input_payload = {
+        "woningmodel": woningmodel.model_dump(),
+        "relevante_woninginformatie": {
+            "woning": woningmodel.woning.model_dump(),
+            "prestatie": woningmodel.prestatie.model_dump(),
+            "bouwdelen": woningmodel.bouwdelen.model_dump(),
+            "installaties": woningmodel.installaties.model_dump(),
+            "huidige_maatregelen_samenvatting": woningmodel.samenvatting_huidige_maatregelen,
+            "huidige_maatregelen_gestructureerd": [m.model_dump() for m in woningmodel.maatregelen],
+        },
+        "maatregelenbibliotheek": get_measures_library().get("measures", []),
+    }
+
+    tools = None
+    if file_search_store:
+        tools = [
+            types.Tool(
+                file_search=types.FileSearch(
+                    file_search_store_names=[file_search_store]
+                )
+            )
+        ]
+        input_payload["file_search_store"] = file_search_store
+
+    raw = _generate_json(
+        model=_get_scenario_model(),
+        contents=[json.dumps(input_payload, ensure_ascii=False), build_measure_gap_prompt()],
+        context_name="Gemini measure gap analysis",
+        tools=tools,
+    )
+
+    if not isinstance(raw, dict):
+        raise RuntimeError("invalid_llm_json: Measure gap analysis response should be an object.")
+
+    normalized = _normalize_measure_gap_payload(raw)
+    overview = MeasureOverview.model_validate(normalized)
+    statuses = [*overview.missing, *overview.improvable]
+    return statuses, overview
+
+
 
 
 def _normalize_scenario_advice_payload(raw: dict[str, Any]) -> dict[str, Any]:
@@ -157,6 +270,71 @@ def _normalize_scenario_advice_payload(raw: dict[str, Any]) -> dict[str, Any]:
         normalized["selected_measures"] = _normalize_measures(normalized.get("selected_measures"))
     if "logical_order" in normalized:
         normalized["logical_order"] = _normalize_measures(normalized.get("logical_order"))
+
+    def _safe_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            if isinstance(value, str):
+                value = value.replace(",", ".").strip()
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _estimate_measure_investment(measure: dict[str, Any]) -> float:
+        per_unit = _safe_float(measure.get("investment_per_unit_eur"))
+        if per_unit is not None and per_unit > 0:
+            return round(per_unit, 2)
+
+        bandwidth = measure.get("investment_bandwidth_eur", {})
+        low = _safe_float(bandwidth.get("min"))
+        high = _safe_float(bandwidth.get("max"))
+        if low is not None and high is not None and low > 0 and high > 0:
+            return round((low + high) / 2.0, 2)
+
+        return 0.0
+
+    selected_measures = normalized.get("selected_measures") or []
+    provided_total = _safe_float(normalized.get("total_investment_eur"))
+    if isinstance(selected_measures, list) and selected_measures and (provided_total is None or provided_total <= 0.0):
+        library = get_measures_library().get("measures", [])
+        measure_index = {
+            str(measure.get("id", "")).strip(): measure
+            for measure in library
+            if isinstance(measure, dict) and str(measure.get("id", "")).strip()
+        }
+
+        fallback_total = 0.0
+        fallback_uncertainties: list[str] = []
+        for measure_id in selected_measures:
+            measure = measure_index.get(str(measure_id).strip())
+            if not measure:
+                fallback_uncertainties.append(
+                    f"Maatregel '{measure_id}' ontbreekt in maatregelenbibliotheek; investering niet meegerekend."
+                )
+                continue
+            estimated = _estimate_measure_investment(measure)
+            fallback_total += estimated
+            if estimated == 0.0:
+                fallback_uncertainties.append(
+                    f"Maatregel '{measure_id}' heeft geen bruikbare investment_per_unit_eur/investment_bandwidth_eur in de bibliotheek."
+                )
+
+        normalized["total_investment_eur"] = round(fallback_total, 2)
+
+        assumptions = normalized.get("assumptions")
+        if not isinstance(assumptions, list):
+            assumptions = []
+        assumptions.append(
+            "total_investment_eur is deterministisch afgeleid uit maatregelenbibliotheek (POC-fallback) omdat Gemini geen bruikbare investeringswaarde gaf."
+        )
+        normalized["assumptions"] = assumptions
+
+        uncertainties = normalized.get("uncertainties")
+        if not isinstance(uncertainties, list):
+            uncertainties = []
+        uncertainties.extend(fallback_uncertainties)
+        normalized["uncertainties"] = uncertainties
 
     for key in ("total_investment_eur", "monthly_savings_eur", "expected_property_value_gain_eur"):
         value = normalized.get(key)

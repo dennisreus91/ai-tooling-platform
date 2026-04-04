@@ -2,8 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from schemas import Constraints, ScenarioAdvice, WoningModel
-from services.measure_matching_service import match_measures
+from schemas import Constraints, MeasureOverview, MeasureStatus, ScenarioAdvice, WoningModel
 from services.poc_flow_service import run_poc_flow
 
 
@@ -30,10 +29,19 @@ def _sample_model(ep2: float = 280, label: str = "D") -> WoningModel:
 
 
 @patch("services.poc_flow_service.get_scenario_advice_with_gemini")
-def test_run_poc_flow_end_to_end_with_gemini_scenario_advice(mock_advice):
+@patch("services.poc_flow_service.get_measure_gap_analysis_with_gemini")
+def test_run_poc_flow_end_to_end_with_gemini_scenario_advice(mock_gap, mock_advice):
     constraints = Constraints(target_label="B", required_measures=[])
     model = _sample_model()
 
+    mock_gap.return_value = (
+        [MeasureStatus(measure_id="dakisolatie", canonical_name="Dakisolatie", status="missing", reason="Ontbreekt.")],
+        MeasureOverview(
+            missing=[MeasureStatus(measure_id="dakisolatie", canonical_name="Dakisolatie", status="missing", reason="Ontbreekt.")],
+            improvable=[],
+            combined=[MeasureStatus(measure_id="dakisolatie", canonical_name="Dakisolatie", status="missing", reason="Ontbreekt.")],
+        ),
+    )
     mock_advice.return_value = ScenarioAdvice(
         scenario_id="GEMINI_GEBALANCEERD",
         scenario_name="Gemini Gebalanceerd",
@@ -58,22 +66,10 @@ def test_run_poc_flow_end_to_end_with_gemini_scenario_advice(mock_advice):
     assert len(result.measure_overview.combined) >= 1
 
 
-def test_match_measures_returns_multiple_status_types():
-    model = _sample_model(ep2=300, label="D")
-    model.bouwdelen.dak.rc = 6.5
-    model.installaties.pv.max_extra_kwp = 0.0
-    model.installaties.elektra.max_aansluitwaarde_kw = 4.0
-
-    statuses = match_measures(model)
-    status_map = {s.measure_id: s.status for s in statuses}
-
-    assert status_map["dakisolatie"] == "sufficient"
-    assert status_map["gevelisolatie"] in {"improvable", "missing"}
-    assert status_map["zonnepanelen_pv"] == "capacity_limited"
-
-
 @patch("services.poc_flow_service.get_scenario_advice_with_gemini")
-def test_run_poc_flow_rejects_missing_ep2_without_backup_defaults(mock_advice):
+@patch("services.poc_flow_service.get_measure_gap_analysis_with_gemini")
+def test_run_poc_flow_rejects_missing_ep2_without_backup_defaults(mock_gap, mock_advice):
+    mock_gap.return_value = ([], MeasureOverview(missing=[], improvable=[], combined=[]))
     mock_advice.return_value = ScenarioAdvice(
         scenario_id="x",
         scenario_name="x",
