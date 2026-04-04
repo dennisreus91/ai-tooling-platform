@@ -2,22 +2,12 @@ from __future__ import annotations
 
 import os
 
-from gemini_service import get_scenario_advice_with_gemini
-from schemas import Constraints, MeasureOverview, PocFlowResult, WoningModel
-from services.measure_matching_service import match_measures
+from gemini_service import get_measure_gap_analysis_with_gemini, get_scenario_advice_with_gemini
+from schemas import Constraints, PocFlowResult, WoningModel
 from services.normalization_service import normalize_woningmodel
 from services.config_service import get_label_boundaries
 from services.report_generation_service import build_final_report
 from validators import label_from_ep2
-
-
-def _build_measure_overview(statuses):
-    missing = [s for s in statuses if s.status == "missing"]
-    improvable = [s for s in statuses if s.status == "improvable"]
-    combined = missing + improvable
-    return MeasureOverview(missing=missing, improvable=improvable, combined=combined)
-
-
 
 
 def _estimate_ep2_from_label(label: str) -> float | None:
@@ -57,8 +47,10 @@ def run_poc_flow(constraints: Constraints, woningmodel: WoningModel) -> PocFlowR
 
     current_label = str(current_label_raw or label_from_ep2(current_ep2))
 
-    statuses = match_measures(model)
-    overview = _build_measure_overview(statuses)
+    statuses, overview = get_measure_gap_analysis_with_gemini(
+        woningmodel=model,
+        file_search_store=os.getenv("GEMINI_METHOD_FILE_SEARCH_STORE"),
+    )
 
     scenario_advice = get_scenario_advice_with_gemini(
         constraints=constraints,

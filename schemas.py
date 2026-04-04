@@ -318,6 +318,11 @@ class MeasureStatus(BaseModel):
     current_value: Any = None
     target_value: Any = None
     reason: str
+    evidence_fields: List[str] = Field(default_factory=list)
+    current_values_snapshot: Dict[str, Any] = Field(default_factory=dict)
+    gap_delta: Optional[float] = None
+    assumptions: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
 
 
 class MeasureImpact(BaseModel):

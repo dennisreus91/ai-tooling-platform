@@ -79,3 +79,32 @@ def build_scenario_advice_prompt() -> str:
         f"{TRIAS_ENERGETICA_INSTRUCTIE.strip()}\n\n"
         f"{METHODOLOGY_SOURCE_GUIDANCE.strip()}"
     )
+
+
+def build_measure_gap_prompt() -> str:
+    return (
+        f"{SYSTEM_INSTRUCTION_BASELINE.strip()}\n\n"
+        "Doel: vergelijk huidige woninginformatie + huidige maatregelen met de maatregelenbibliotheek "
+        "en geef een complete measure-gap analyse terug.\n"
+        "Input bevat:\n"
+        "- woningmodel (incl. samenvatting_huidige_maatregelen en maatregelen)\n"
+        "- maatregelenbibliotheek.measures\n\n"
+        "Output: precies één JSON-object met velden:\n"
+        "- missing: lijst met MeasureStatus-achtige objecten\n"
+        "- improvable: lijst met MeasureStatus-achtige objecten\n"
+        "- combined: lijst met MeasureStatus-achtige objecten\n\n"
+        "Per statusobject verplicht:\n"
+        "- measure_id, canonical_name, status, reason\n"
+        "Aanvullend gewenst voor scenario-opbouw:\n"
+        "- current_value, target_value, evidence_fields, current_values_snapshot, gap_delta, assumptions, uncertainties\n\n"
+        "Regels:\n"
+        "- Voer de inhoudelijke vergelijking zelf uit op basis van woningmodel en bibliotheek\n"
+        "- Gebruik uitsluitend measures uit maatregelenbibliotheek.measures\n"
+        "- Status moet één van deze waarden zijn: missing, improvable, sufficient, not_applicable, capacity_limited\n"
+        "- Zet unknown/ontbrekende numerieke waarden op null\n"
+        "- Zet inhoudelijke aannames expliciet in assumptions\n"
+        "- Zet onzekerheden expliciet in uncertainties\n"
+        "- Geef alleen JSON terug\n\n"
+        f"{TRIAS_ENERGETICA_INSTRUCTIE.strip()}\n\n"
+        f"{METHODOLOGY_SOURCE_GUIDANCE.strip()}"
+    )
