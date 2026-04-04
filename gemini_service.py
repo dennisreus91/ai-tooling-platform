@@ -24,6 +24,31 @@ from services.config_service import get_measures_library
 from services.extraction_service import extract_woningmodel_from_payload
 
 DEFAULT_TIMEOUT_SECONDS = 60
+MEASURE_LIBRARY_FIELDS = (
+    "id",
+    "canonical_name",
+    "aliases",
+    "category",
+    "trias_step",
+    "isso_reference",
+    "nta_domain",
+    "calculation_priority",
+    "target_metric",
+    "target_value",
+    "target_value_note",
+    "unit_for_quantity",
+    "investment_per_unit_eur",
+    "investment_bandwidth_eur",
+    "impact_path",
+    "match_fields",
+    "dependencies",
+    "mutual_exclusions",
+    "comparison_mode",
+    "notes",
+    "label_relevant",
+    "scenario_allowed",
+    "status_output_types",
+)
 
 
 def _get_required_env(name: str) -> str:
@@ -183,6 +208,147 @@ def _normalize_measure_gap_payload(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _enrich_measure_gap_payload_with_library(raw: dict[str, Any]) -> dict[str, Any]:
+    library = get_measures_library().get("measures", [])
+    measure_index: dict[str, dict[str, Any]] = {}
+    for measure in library:
+        if not isinstance(measure, dict):
+            continue
+        key = str(measure.get("id", "")).strip()
+        if key:
+            measure_index[key] = measure
+
+    def _enrich_item(item: dict[str, Any]) -> dict[str, Any]:
+        result = dict(item)
+        key = str(result.get("measure_id", "")).strip()
+        measure = measure_index.get(key)
+        if not measure:
+            return result
+
+        # Altijd canonical_name/id vanuit bibliotheek als bron van waarheid.
+        result["id"] = measure.get("id")
+        result["canonical_name"] = str(measure.get("canonical_name") or result.get("canonical_name") or "").strip()
+
+        for field in MEASURE_LIBRARY_FIELDS:
+            if field in {"id", "canonical_name"}:
+                continue
+            result[field] = measure.get(field)
+        return result
+
+    return {
+        "missing": [_enrich_item(item) for item in raw.get("missing", []) if isinstance(item, dict)],
+        "improvable": [_enrich_item(item) for item in raw.get("improvable", []) if isinstance(item, dict)],
+        "combined": [_enrich_item(item) for item in raw.get("combined", []) if isinstance(item, dict)],
+    }
+
+
+def _resolve_measure_overview_quantities(raw: dict[str, Any], woningmodel: WoningModel) -> dict[str, Any]:
+    def _safe_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        try:
+            if isinstance(value, str):
+                value = value.replace(",", ".").strip()
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _text(value: Any) -> str:
+        return str(value or "").strip().casefold()
+
+    measure_candidates = [m.model_dump() for m in woningmodel.maatregelen]
+
+    def _match_candidate(item: dict[str, Any]) -> dict[str, Any] | None:
+        labels = {
+            _text(item.get("measure_id")),
+            _text(item.get("id")),
+            _text(item.get("canonical_name")),
+        }
+        for alias in item.get("aliases") or []:
+            labels.add(_text(alias))
+
+        labels = {label for label in labels if label}
+        if not labels:
+            return None
+
+        for candidate in measure_candidates:
+            original_name = _text(candidate.get("maatregel_naam_origineel"))
+            if not original_name:
+                continue
+            if original_name in labels:
+                return candidate
+            if any(label in original_name or original_name in label for label in labels):
+                return candidate
+        return None
+
+    def _resolve_from_target_metric(item: dict[str, Any]) -> tuple[float | None, str | None]:
+        target_metric = str(item.get("target_metric") or "").strip()
+        mapping = {
+            "bouwdelen.dak.": "bouwdelen.dak.oppervlakte_m2",
+            "bouwdelen.gevel.": "bouwdelen.gevel.oppervlakte_m2",
+            "bouwdelen.vloer.": "bouwdelen.vloer.oppervlakte_m2",
+            "bouwdelen.ramen.": "bouwdelen.ramen.oppervlakte_m2",
+        }
+        woning = woningmodel.model_dump()
+
+        def _get_nested(container: dict[str, Any], path: str) -> Any:
+            current: Any = container
+            for part in path.split("."):
+                if not isinstance(current, dict):
+                    return None
+                current = current.get(part)
+            return current
+
+        for prefix, source_field in mapping.items():
+            if not target_metric.startswith(prefix):
+                continue
+            value = _safe_float(_get_nested(woning, source_field))
+            if value is not None:
+                return value, source_field
+        return None, None
+
+    def _resolve_item(item: dict[str, Any]) -> dict[str, Any]:
+        result = dict(item)
+        quantity_value = None
+        quantity_unit = None
+        quantity_source_field = None
+        quantity_confidence = 0.0
+
+        candidate = _match_candidate(result)
+        if candidate:
+            quantity_value = _safe_float(candidate.get("quantity_value"))
+            quantity_unit = candidate.get("quantity_unit")
+            quantity_source_field = candidate.get("quantity_source_field")
+            quantity_confidence = _safe_float(candidate.get("quantity_confidence")) or 0.0
+
+        if quantity_value is None:
+            derived_value, derived_source = _resolve_from_target_metric(result)
+            if derived_value is not None:
+                quantity_value = derived_value
+                quantity_source_field = derived_source
+                quantity_confidence = max(quantity_confidence, 0.6)
+                if not quantity_unit:
+                    quantity_unit = result.get("unit_for_quantity")
+
+        if quantity_value is None and str(result.get("unit_for_quantity") or "").strip() == "woning":
+            quantity_value = 1.0
+            quantity_unit = "woning"
+            quantity_source_field = "constant:woning"
+            quantity_confidence = max(quantity_confidence, 1.0)
+
+        result["resolved_quantity_value"] = quantity_value
+        result["resolved_quantity_unit"] = quantity_unit
+        result["resolved_quantity_source_field"] = quantity_source_field
+        result["resolved_quantity_confidence"] = max(0.0, min(1.0, float(quantity_confidence or 0.0)))
+        return result
+
+    return {
+        "missing": [_resolve_item(item) for item in raw.get("missing", []) if isinstance(item, dict)],
+        "improvable": [_resolve_item(item) for item in raw.get("improvable", []) if isinstance(item, dict)],
+        "combined": [_resolve_item(item) for item in raw.get("combined", []) if isinstance(item, dict)],
+    }
+
+
 def get_measure_gap_analysis_with_gemini(
     *,
     woningmodel: WoningModel,
@@ -223,14 +389,16 @@ def get_measure_gap_analysis_with_gemini(
         raise RuntimeError("invalid_llm_json: Measure gap analysis response should be an object.")
 
     normalized = _normalize_measure_gap_payload(raw)
-    overview = MeasureOverview.model_validate(normalized)
+    enriched = _enrich_measure_gap_payload_with_library(normalized)
+    resolved = _resolve_measure_overview_quantities(enriched, woningmodel)
+    overview = MeasureOverview.model_validate(resolved)
     statuses = [*overview.missing, *overview.improvable]
     return statuses, overview
 
 
 
 
-def _normalize_scenario_advice_payload(raw: dict[str, Any]) -> dict[str, Any]:
+def _normalize_scenario_advice_payload(raw: dict[str, Any], measure_overview: MeasureOverview | None = None) -> dict[str, Any]:
     allowed_fields = {
         "scenario_id",
         "scenario_name",
@@ -296,6 +464,63 @@ def _normalize_scenario_advice_payload(raw: dict[str, Any]) -> dict[str, Any]:
 
     selected_measures = normalized.get("selected_measures") or []
     provided_total = _safe_float(normalized.get("total_investment_eur"))
+    if isinstance(selected_measures, list) and selected_measures and (provided_total is None or provided_total <= 0.0):
+        if measure_overview is not None:
+            overview_items = measure_overview.combined or [*measure_overview.missing, *measure_overview.improvable]
+            overview_index = {
+                str(item.measure_id or item.id or "").strip(): item
+                for item in overview_items
+                if str(item.measure_id or item.id or "").strip()
+            }
+            quantity_total = 0.0
+            quantity_assumptions: list[str] = []
+            quantity_uncertainties: list[str] = []
+
+            for measure_id in selected_measures:
+                item = overview_index.get(str(measure_id).strip())
+                if not item:
+                    quantity_uncertainties.append(
+                        f"Maatregel '{measure_id}' ontbreekt in measure_overview; quantity-gedreven investering niet toepasbaar."
+                    )
+                    continue
+                unit_price = _safe_float(item.investment_per_unit_eur)
+                quantity_value = _safe_float(item.resolved_quantity_value)
+                unit_for_quantity = str(item.unit_for_quantity or "").strip()
+                if quantity_value is None and unit_for_quantity == "woning":
+                    quantity_value = 1.0
+                if unit_price is None or unit_price <= 0.0:
+                    quantity_uncertainties.append(
+                        f"Maatregel '{measure_id}' heeft geen bruikbare investment_per_unit_eur; library fallback nodig."
+                    )
+                    continue
+                if quantity_value is None or quantity_value <= 0.0:
+                    quantity_uncertainties.append(
+                        f"Maatregel '{measure_id}' heeft geen bruikbare resolved_quantity_value; library fallback nodig."
+                    )
+                    continue
+                quantity_total += unit_price * quantity_value
+                quantity_assumptions.append(
+                    f"{measure_id}: total_investment component = investment_per_unit_eur * resolved_quantity_value."
+                )
+
+            if quantity_total > 0.0:
+                normalized["total_investment_eur"] = round(quantity_total, 2)
+                assumptions = normalized.get("assumptions")
+                if not isinstance(assumptions, list):
+                    assumptions = []
+                assumptions.append(
+                    "total_investment_eur is deterministisch afgeleid uit measure_overview (resolved quantities * investment_per_unit_eur)."
+                )
+                assumptions.extend(quantity_assumptions)
+                normalized["assumptions"] = assumptions
+
+                uncertainties = normalized.get("uncertainties")
+                if not isinstance(uncertainties, list):
+                    uncertainties = []
+                uncertainties.extend(quantity_uncertainties)
+                normalized["uncertainties"] = uncertainties
+                provided_total = normalized["total_investment_eur"]
+
     if isinstance(selected_measures, list) and selected_measures and (provided_total is None or provided_total <= 0.0):
         library = get_measures_library().get("measures", [])
         measure_index = {
@@ -408,4 +633,4 @@ def get_scenario_advice_with_gemini(
     if not isinstance(raw, dict):
         raise RuntimeError("invalid_llm_json: Scenario advice response should be an object.")
 
-    return ScenarioAdvice.model_validate(_normalize_scenario_advice_payload(raw))
+    return ScenarioAdvice.model_validate(_normalize_scenario_advice_payload(raw, measure_overview))

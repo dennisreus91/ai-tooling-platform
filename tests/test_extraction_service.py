@@ -37,3 +37,32 @@ def test_extract_normalizes_maatregelwaarden_numeric_and_unit():
     assert values[0].eenheid == "m²K/W"
     assert values[1].waarde is None
     assert values[1].eenheid == "123"
+
+
+def test_extract_normalizes_measure_quantity_and_bouwdeel_surface_fields():
+    model = extract_woningmodel_from_payload(
+        {
+            "prestatie": {"current_ep2_kwh_m2": 210.0},
+            "bouwdelen": {
+                "dak": {"oppervlakte_m2": "64,5"},
+                "gevel": {"oppervlakte_m2": "onbekend"},
+            },
+            "maatregelen": [
+                {
+                    "maatregel_naam_origineel": "Dakisolatie",
+                    "quantity_value": "64,5",
+                    "quantity_unit": "m2",
+                    "quantity_source_field": "bouwdelen.dak.oppervlakte_m2",
+                    "quantity_confidence": "0.75",
+                }
+            ],
+            "extractie_meta": {},
+        }
+    )
+
+    assert model.bouwdelen.dak.oppervlakte_m2 == 64.5
+    assert model.bouwdelen.gevel.oppervlakte_m2 is None
+    assert model.maatregelen[0].quantity_value == 64.5
+    assert model.maatregelen[0].quantity_unit == "m2"
+    assert model.maatregelen[0].quantity_source_field == "bouwdelen.dak.oppervlakte_m2"
+    assert model.maatregelen[0].quantity_confidence == 0.75

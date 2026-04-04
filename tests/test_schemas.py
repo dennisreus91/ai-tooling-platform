@@ -82,3 +82,4 @@ def test_maatregel_extract_null_collections_are_coerced():
     assert measure.voorgestelde_situatie == {}
     assert measure.relevante_parameters == {}
     assert measure.maatregel_waarden == []
+    assert measure.quantity_confidence == 0.0
