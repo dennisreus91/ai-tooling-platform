@@ -30,6 +30,22 @@ def _get_nested(container: dict[str, Any], path: str) -> Any:
     return current
 
 
+def _coerce_optional_float_in_path(container: dict[str, Any], path: str) -> None:
+    value = _get_nested(container, path)
+    if value is None:
+        return
+    if isinstance(value, (int, float)):
+        return
+    if isinstance(value, str):
+        try:
+            _set_nested(container, path, float(value.replace(",", ".").strip()))
+            return
+        except (TypeError, ValueError):
+            _set_nested(container, path, None)
+            return
+    _set_nested(container, path, None)
+
+
 def _build_null_safe_template_from_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """
     Bouw een null-safe basisobject vanuit woningmodel_schema.json.
@@ -137,6 +153,32 @@ def _coerce_known_field_shapes(data: dict[str, Any]) -> None:
         ]
 
     for measure in data["maatregelen"]:
+        quantity_value = measure.get("quantity_value")
+        if isinstance(quantity_value, str):
+            try:
+                measure["quantity_value"] = float(quantity_value.replace(",", ".").strip())
+            except (TypeError, ValueError):
+                measure["quantity_value"] = None
+        elif quantity_value is not None and not isinstance(quantity_value, (int, float)):
+            measure["quantity_value"] = None
+
+        quantity_unit = measure.get("quantity_unit")
+        if quantity_unit is not None and not isinstance(quantity_unit, str):
+            measure["quantity_unit"] = str(quantity_unit)
+
+        quantity_source_field = measure.get("quantity_source_field")
+        if quantity_source_field is not None and not isinstance(quantity_source_field, str):
+            measure["quantity_source_field"] = str(quantity_source_field)
+
+        quantity_confidence = measure.get("quantity_confidence")
+        if quantity_confidence is None:
+            measure["quantity_confidence"] = 0.0
+        else:
+            try:
+                measure["quantity_confidence"] = max(0.0, min(1.0, float(quantity_confidence)))
+            except (TypeError, ValueError):
+                measure["quantity_confidence"] = 0.0
+
         values = measure.get("maatregel_waarden")
         if values is None:
             measure["maatregel_waarden"] = []
@@ -178,6 +220,14 @@ def _coerce_known_field_shapes(data: dict[str, Any]) -> None:
             normalized_values.append(entry)
 
         measure["maatregel_waarden"] = normalized_values
+
+    for path in (
+        "bouwdelen.dak.oppervlakte_m2",
+        "bouwdelen.gevel.oppervlakte_m2",
+        "bouwdelen.vloer.oppervlakte_m2",
+        "bouwdelen.ramen.oppervlakte_m2",
+    ):
+        _coerce_optional_float_in_path(data, path)
 
 
 def _collect_missing_fields(data: dict[str, Any]) -> None:

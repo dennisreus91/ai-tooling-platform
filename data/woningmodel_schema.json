@@ -126,6 +126,9 @@
             "rc": {
               "type": ["number", "null"]
             },
+            "oppervlakte_m2": {
+              "type": ["number", "null"]
+            },
             "brontekst": {
               "type": ["string", "null"]
             }
@@ -136,6 +139,9 @@
           "type": "object",
           "properties": {
             "rc": {
+              "type": ["number", "null"]
+            },
+            "oppervlakte_m2": {
               "type": ["number", "null"]
             },
             "brontekst": {
@@ -150,6 +156,9 @@
             "rc": {
               "type": ["number", "null"]
             },
+            "oppervlakte_m2": {
+              "type": ["number", "null"]
+            },
             "brontekst": {
               "type": ["string", "null"]
             }
@@ -160,6 +169,9 @@
           "type": "object",
           "properties": {
             "u_waarde": {
+              "type": ["number", "null"]
+            },
+            "oppervlakte_m2": {
               "type": ["number", "null"]
             },
             "glastype": {
@@ -375,6 +387,20 @@
               },
               "additionalProperties": true
             }
+          },
+          "quantity_value": {
+            "type": ["number", "null"]
+          },
+          "quantity_unit": {
+            "type": ["string", "null"]
+          },
+          "quantity_source_field": {
+            "type": ["string", "null"]
+          },
+          "quantity_confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
           },
           "opmerking": {
             "type": ["string", "null"]

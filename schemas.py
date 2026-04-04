@@ -119,6 +119,7 @@ class DakInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     rc: Optional[float] = None
+    oppervlakte_m2: Optional[float] = None
     brontekst: Optional[str] = None
 
 
@@ -126,6 +127,7 @@ class GevelInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     rc: Optional[float] = None
+    oppervlakte_m2: Optional[float] = None
     brontekst: Optional[str] = None
 
 
@@ -133,6 +135,7 @@ class VloerInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     rc: Optional[float] = None
+    oppervlakte_m2: Optional[float] = None
     brontekst: Optional[str] = None
 
 
@@ -140,6 +143,7 @@ class RamenInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     u_waarde: Optional[float] = None
+    oppervlakte_m2: Optional[float] = None
     glastype: Optional[str] = None
     kozijn_isolerend: Optional[bool] = None
     brontekst: Optional[str] = None
@@ -267,6 +271,10 @@ class MaatregelExtract(BaseModel):
     betrokken_installaties: List[str] = Field(default_factory=list)
     relevante_parameters: Dict[str, Any] = Field(default_factory=dict)
     maatregel_waarden: List[MaatregelWaarde] = Field(default_factory=list)
+    quantity_value: Optional[float] = None
+    quantity_unit: Optional[str] = None
+    quantity_source_field: Optional[str] = None
+    quantity_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     opmerking: Optional[str] = None
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
@@ -283,6 +291,8 @@ class MaatregelExtract(BaseModel):
         for key in ("betrokken_bouwdelen", "betrokken_installaties", "maatregel_waarden"):
             if normalized.get(key) is None:
                 normalized[key] = []
+        if normalized.get("quantity_confidence") is None:
+            normalized["quantity_confidence"] = 0.0
         if normalized.get("confidence") is None:
             normalized["confidence"] = 0.0
         return normalized
@@ -323,6 +333,33 @@ class MeasureStatus(BaseModel):
     gap_delta: Optional[float] = None
     assumptions: List[str] = Field(default_factory=list)
     uncertainties: List[str] = Field(default_factory=list)
+
+    # Verrijkte bibliotheekvelden voor scenario-opbouw/-doorrekening.
+    id: Optional[str] = None
+    aliases: List[str] = Field(default_factory=list)
+    category: Optional[str] = None
+    trias_step: Optional[int] = None
+    isso_reference: Optional[str] = None
+    nta_domain: Optional[str] = None
+    calculation_priority: Optional[int] = None
+    target_metric: Optional[str] = None
+    target_value_note: Optional[str] = None
+    unit_for_quantity: Optional[str] = None
+    investment_per_unit_eur: Optional[float] = None
+    investment_bandwidth_eur: Dict[str, Optional[float]] = Field(default_factory=dict)
+    impact_path: List[str] = Field(default_factory=list)
+    match_fields: List[str] = Field(default_factory=list)
+    dependencies: List[str] = Field(default_factory=list)
+    mutual_exclusions: List[str] = Field(default_factory=list)
+    comparison_mode: Optional[str] = None
+    notes: Optional[str] = None
+    label_relevant: Optional[bool] = None
+    scenario_allowed: Optional[bool] = None
+    status_output_types: List[str] = Field(default_factory=list)
+    resolved_quantity_value: Optional[float] = None
+    resolved_quantity_unit: Optional[str] = None
+    resolved_quantity_source_field: Optional[str] = None
+    resolved_quantity_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class MeasureImpact(BaseModel):

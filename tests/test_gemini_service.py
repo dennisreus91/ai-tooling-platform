@@ -1,6 +1,13 @@
 import pytest
 
-from gemini_service import _normalize_measure_gap_payload, _normalize_scenario_advice_payload, _parse_llm_json
+from gemini_service import (
+    _enrich_measure_gap_payload_with_library,
+    _normalize_measure_gap_payload,
+    _normalize_scenario_advice_payload,
+    _parse_llm_json,
+    _resolve_measure_overview_quantities,
+)
+from schemas import MeasureOverview, MeasureStatus, WoningModel
 
 
 def test_parse_llm_json_extracts_fenced_block():
@@ -143,6 +150,66 @@ def test_normalize_measure_gap_payload_normalizes_invalid_fields():
     assert item["gap_delta"] is None
 
 
+def test_enrich_measure_gap_payload_with_library_adds_investment_and_unit_fields():
+    enriched = _enrich_measure_gap_payload_with_library(
+        {
+            "missing": [
+                {
+                    "measure_id": "dakisolatie",
+                    "canonical_name": "Dakisolatie",
+                    "status": "missing",
+                    "reason": "Ontbreekt",
+                }
+            ],
+            "improvable": [],
+            "combined": [],
+        }
+    )
+
+    item = enriched["missing"][0]
+    assert item["id"] == "dakisolatie"
+    assert item["unit_for_quantity"] == "m2"
+    assert item["investment_per_unit_eur"] == 85
+    assert item["trias_step"] == 1
+
+
+def test_resolve_measure_overview_quantities_uses_woningmodel_measure_quantity():
+    woningmodel = WoningModel.model_validate(
+        {
+            "prestatie": {"current_ep2_kwh_m2": 210.0},
+            "maatregelen": [
+                {
+                    "maatregel_naam_origineel": "Dakisolatie",
+                    "quantity_value": 64.5,
+                    "quantity_unit": "m2",
+                    "quantity_source_field": "bouwdelen.dak.oppervlakte_m2",
+                    "quantity_confidence": 0.8,
+                }
+            ],
+            "extractie_meta": {},
+        }
+    )
+    enriched = _enrich_measure_gap_payload_with_library(
+        {
+            "missing": [
+                {
+                    "measure_id": "dakisolatie",
+                    "canonical_name": "Dakisolatie",
+                    "status": "missing",
+                    "reason": "Ontbreekt",
+                }
+            ],
+            "improvable": [],
+            "combined": [],
+        }
+    )
+    resolved = _resolve_measure_overview_quantities(enriched, woningmodel)
+    item = resolved["missing"][0]
+    assert item["resolved_quantity_value"] == 64.5
+    assert item["resolved_quantity_unit"] == "m2"
+    assert item["resolved_quantity_source_field"] == "bouwdelen.dak.oppervlakte_m2"
+
+
 def test_normalize_scenario_advice_payload_estimates_total_investment_from_library_when_missing():
     normalized = _normalize_scenario_advice_payload(
         {
@@ -158,6 +225,39 @@ def test_normalize_scenario_advice_payload_estimates_total_investment_from_libra
 
     assert normalized["total_investment_eur"] > 0
     assert any("deterministisch afgeleid uit maatregelenbibliotheek" in msg for msg in normalized["assumptions"])
+
+
+def test_normalize_scenario_advice_payload_uses_measure_overview_quantity_when_available():
+    overview = MeasureOverview(
+        missing=[],
+        improvable=[],
+        combined=[
+            MeasureStatus(
+                measure_id="dakisolatie",
+                canonical_name="Dakisolatie",
+                status="missing",
+                reason="Ontbreekt",
+                investment_per_unit_eur=85.0,
+                resolved_quantity_value=64.5,
+                unit_for_quantity="m2",
+            )
+        ],
+    )
+    normalized = _normalize_scenario_advice_payload(
+        {
+            "scenario_id": "S1",
+            "scenario_name": "test",
+            "expected_label": "B",
+            "expected_ep2_kwh_m2": 120,
+            "selected_measures": ["dakisolatie"],
+            "total_investment_eur": None,
+            "motivation": "ok",
+        },
+        overview,
+    )
+
+    assert normalized["total_investment_eur"] == 5482.5
+    assert any("resolved quantities" in msg for msg in normalized["assumptions"])
 
 
 def test_normalize_scenario_advice_payload_keeps_positive_total_investment_from_gemini():
