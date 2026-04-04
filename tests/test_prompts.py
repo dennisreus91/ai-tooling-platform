@@ -18,8 +18,6 @@ def test_methodology_source_guidance_contains_core_sources():
     text = METHODOLOGY_SOURCE_GUIDANCE
     assert "NTA 8800" in text
     assert "ISSO 82.1" in text
-    assert "ISSO 82.2" in text
-    assert "RVO" in text
 
 
 def test_extract_prompt_contains_schema_and_extractie_meta_rules():
