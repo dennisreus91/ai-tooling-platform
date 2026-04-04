@@ -1,14 +1,14 @@
 # AGENTS.md
 
 ## Projectdoel (huidige codebasis)
-Deze repository bevat een Flask-gebaseerde POC-tool voor labelsprongadvies op basis van een extern Vabi-bestand (`file_url`).
+Deze repository bevat een Flask-gebaseerde POC-tool voor labelsprongadvies op basis van een extern Vabi/PDF-bestand (`file_url`).
 
 De runtime-flow die **nu** actief is op endpointniveau:
 1. Download bestand via URL
 2. Upload naar Gemini Files API
 3. Gemini-extractie naar `WoningModel`
 4. Deterministische validatie/normalisatie
-5. Deterministische maatregelmatching
+5. Gemini measure-gap-analyse
 6. Gemini scenario-advies (met JSON-config als context)
 7. Deterministische eindrapport-assemblage
 
@@ -40,11 +40,11 @@ Voeg geen nieuwe vaste businessregels toe buiten JSON als die regel logisch in c
 | Vabi/PDF → `WoningModel` extractie | Gemini |
 | Structuurcoercie + null-safe template | Deterministisch |
 | Validatie + normalisatie | Deterministisch |
-| Maatregelmatching | Deterministisch |
-| Scenario-advies voor actieve API-flow | Gemini |
+| Measure-gap-analyse (`missing`/`improvable`) | Gemini + deterministische verrijking |
+| Scenario-advies voor actieve API-flow | Gemini + deterministische fallback-normalisatie |
 | Final report-opbouw | Deterministisch |
 
-Belangrijk: in de huidige `/run-poc-flow` wordt scenario-opbouw/-calculatie/-selectie niet lokaal doorgerekend, maar via `get_scenario_advice_with_gemini(...)` opgehaald en daarna gevalideerd.
+Belangrijk: in de huidige `/run-poc-flow` worden measure-overview en scenario-advies door Gemini gegenereerd en daarna schema-valide + genormaliseerd.
 
 ---
 
@@ -74,12 +74,13 @@ Geen stille defaults in extractiecode; alleen expliciet, traceerbaar en bij voor
 ## 🧠 Gemini-regels
 Gemini wordt in de huidige code gebruikt voor:
 - extractie (`extract_woningmodel_data`)
+- measure-gap-analyse (`get_measure_gap_analysis_with_gemini`)
 - scenario-advies (`get_scenario_advice_with_gemini`)
 
 Alle LLM-output moet:
 - parsebaar JSON zijn
 - schema-valide worden gemaakt met Pydantic
-- waar nodig genormaliseerd worden (lijstvelden, numerieke velden, motivation fallback)
+- waar nodig genormaliseerd worden (lijstvelden, numerieke velden, motivation/investering/EP2 fallback)
 
 Gebruik Gemini niet als ongevalideerde bron voor businessbeslissingen.
 
@@ -94,27 +95,28 @@ De API-flow in `app.py` + `services/poc_flow_service.py`:
 4. Bestand uploaden (`gemini_service.upload_case_file`)
 5. Woningmodel-extractie (`gemini_service.extract_woningmodel_data`)
 6. Woningmodel-normalisatie (`services/normalization_service.normalize_woningmodel`)
-7. Maatregelmatching (`services/measure_matching_service.match_measures`)
-8. MeasureOverview bouwen (missing/improvable)
+7. EP2 bepalen of schatten via `labelgrenzen.json` indien nodig
+8. Measure-gap-analyse ophalen via Gemini (`get_measure_gap_analysis_with_gemini`)
 9. Scenario-advies ophalen via Gemini (`get_scenario_advice_with_gemini`)
 10. Final report bouwen (`services/report_generation_service.build_final_report`)
 
-Bij `debug=false` worden zware tussenlagen uit de API-response verwijderd.
+Bij `debug=false` worden zware tussenlagen uit de API-response verwijderd (`woningmodel`, `measure_statuses`, `measure_overview`, `scenario_advice`).
 
 ---
 
 ## 🧱 Architectuur (huidige rolverdeling)
 - `app.py`: Flask app + endpoint orchestration + foutafhandeling
-- `gemini_service.py`: Gemini client, file upload, JSON parsing, extractie/scenario-advies
+- `gemini_service.py`: Gemini client, file upload, JSON parsing, extractie/measure-gap/scenario-advies
 - `schemas.py`: Pydantic contracten
 - `validators.py`: constraint-normalisatie, labelfuncties, woningmodel-validatie
 - `services/config_service.py`: centrale JSON-loaders met caching
 - `services/extraction_service.py`: payload → null-safe `WoningModel`
 - `services/normalization_service.py`: type-normalisatie + aannameregelverwerking
-- `services/measure_matching_service.py`: deterministische maatregelstatus
+- `services/poc_flow_service.py`: actieve flow-orchestratie
 - `services/report_generation_service.py`: eindrapportobject
 
-Beschikbare maar niet in de actieve API-flow gekoppelde scenario-services:
+Beschikbare maar niet in de actieve API-flow gekoppelde services:
+- `services/measure_matching_service.py`
 - `services/measure_impact_service.py`
 - `services/scenario_builder_service.py`
 - `services/scenario_calculation_service.py`

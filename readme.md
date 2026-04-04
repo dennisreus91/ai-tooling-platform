@@ -1,30 +1,32 @@
 # Energielabel Tool – Labelsprong Advies POC
 
-Flask-gebaseerde POC voor labelsprongadvies op basis van Vabi-rapporten.
+Flask-gebaseerde POC voor labelsprongadvies op basis van Vabi/PDF-rapporten via `file_url`.
 
 De tool combineert:
-- **Gemini (LLM)** voor extractie en scenario-advies
-- **Deterministische Python** voor validatie, normalisatie, maatregelmatching en rapportopbouw
+- **Gemini (LLM)** voor extractie, maatregel-gap-analyse en scenario-advies
+- **Deterministische Python** voor validatie, normalisatie, verrijking, fallback-berekeningen en rapportopbouw
 - **JSON-configuratie** in `data/*.json` als bron voor vaste regels en mappings
 
 > Let op: dit is een **scenario-POC**, geen officiële energielabelregistratie of gecertificeerde NTA 8800-berekening.
 
 ---
 
-## Wat de app nu exact doet
+## Huidige actieve flow (`POST /run-poc-flow`)
 
-De actieve API-flow (`POST /run-poc-flow`) voert deze stappen uit:
-1. Input valideren (`RunPocFlowRequest`)
-2. Constraints normaliseren (`target_label`, `required_measures`)
-3. Bestand downloaden vanaf `file_url`
-4. Bestand uploaden naar Gemini Files API
-5. Gemini-extractie naar `WoningModel`
-6. Null-safe validatie + normalisatie van het woningmodel
-7. Deterministische maatregelmatching op basis van maatregelenbibliotheek
-8. Gemini scenario-advies op basis van constraints, woningmodel en measure overview
-9. Deterministische generatie van `FinalReport`
+1. Request valideren met `RunPocFlowRequest` (`schemas.py`)
+2. Constraints normaliseren (`validators.normalize_constraints`)
+3. Bestand downloaden vanaf `file_url` (`gemini_service.download_file_to_temp`)
+4. Bestand uploaden naar Gemini Files API (`gemini_service.upload_case_file`)
+5. Gemini-extractie naar `WoningModel` (`gemini_service.extract_woningmodel_data`)
+6. Woningmodel normaliseren (`services/normalization_service.normalize_woningmodel`)
+7. EP2 bepalen (direct of via labelgrenzen-fallback)
+8. Gemini measure-gap-analyse ophalen (`gemini_service.get_measure_gap_analysis_with_gemini`)
+   - Daarna deterministische normalisatie/verrijking met maatregelenbibliotheek + quantity-resolutie
+9. Gemini scenario-advies ophalen (`gemini_service.get_scenario_advice_with_gemini`)
+   - Daarna deterministische normalisatie/fallbacks (o.a. investering, EP2, motivatie)
+10. Deterministisch `FinalReport` bouwen (`services/report_generation_service.build_final_report`)
 
-De response bevat bij succes een object met `constraints`, `scenario_advice` en `final_report`. Bij `debug=true` worden extra tussenlagen teruggegeven.
+De flow-orchestratie staat in `services/poc_flow_service.py` en wordt aangeroepen vanuit `app.py`.
 
 ---
 
@@ -60,26 +62,36 @@ Belangrijke validaties:
 - `required_measures` mag string, lijst of `null` zijn
 - `file_url` moet geldige URL zijn
 
+Foutcodes (samengevat):
+- `invalid_json`, `validation_error`, `constraint_error`
+- processing-codes zoals `missing_ep2_data`, `invalid_llm_json`, `processing_error`
+
+---
+
+## Responsegedrag (`debug`)
+
+- `debug=true`: volledige pipeline-uitkomst incl. `woningmodel`, `measure_statuses`, `measure_overview`, `scenario_advice`, `final_report`.
+- `debug=false` (default): zware tussenlagen worden verwijderd; output bevat primair `constraints` en `final_report`.
+
 ---
 
 ## Architectuur
 
 ### Kernbestanden
 - `app.py` – Flask app, routes, foutafhandeling, orchestration
-- `gemini_service.py` – Gemini client, bestandsupload, JSON parsing, extractie/scenario-advies
+- `gemini_service.py` – Gemini client, file upload, JSON parsing, extractie + measure gap + scenario-advies
 - `schemas.py` – Pydantic contracten voor request/response en domeinmodellen
-- `validators.py` – constraints-normalisatie en deterministische labelhelpers
+- `validators.py` – constraints-normalisatie en labelhelpers
 
-### Services
+### Actief gebruikte services
 - `services/config_service.py` – JSON-config laden met caching
-- `services/extraction_service.py` – ruwe payload → null-safe `WoningModel`
+- `services/extraction_service.py` – ruwe LLM payload → null-safe `WoningModel`
 - `services/normalization_service.py` – typecoercie, missing fields, aannameregels
-- `services/measure_matching_service.py` – status per maatregel (`missing`, `improvable`, etc.)
 - `services/poc_flow_service.py` – orchestratie van de actieve POC-keten
 - `services/report_generation_service.py` – finale rapportstructuur
 
-### Aanwezige (momenteel niet gekoppelde) scenario-services
-Deze bestaan in de code en zijn getest, maar worden niet direct vanuit `/run-poc-flow` aangeroepen:
+### Aanwezige maar niet actief gekoppelde scenario-services
+- `services/measure_matching_service.py`
 - `services/measure_impact_service.py`
 - `services/scenario_builder_service.py`
 - `services/scenario_calculation_service.py`
@@ -101,7 +113,7 @@ De applicatie gebruikt o.a.:
 - `woningmodel_schema.json`
 - `referentiecases.json`
 
-Principe: vaste logica hoort in JSON en wordt in code toegepast, niet gedupliceerd.
+Principe: vaste businessregels horen in JSON en worden in code toegepast, niet hardcoded gedupliceerd.
 
 ---
 
@@ -130,11 +142,6 @@ Optioneel:
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-Start de app:
-
-```bash
 python app.py
 ```
 
@@ -150,12 +157,7 @@ Volledige testsuite:
 pytest -q
 ```
 
-In deze repository dekt de suite o.a.:
-- schema-validatie
-- validators
-- service-flow
-- API-routes
-- data-alignment
+Naast unit-tests bevat de repository ook live/integratietests die afhankelijk kunnen zijn van credentials of netwerk.
 
 ---
 
