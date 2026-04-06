@@ -90,7 +90,7 @@ def test_live_stepwise_pipeline(sample_report_path: Path):
         % (step_timeout, run_flow_timeout, total_budget)
     )
 
-    print("\n[STEP 1] sample_report.pdf aanwezig")
+    print(f"\n[STEP 1] sample report fixture aanwezig: {sample_report_path.name}")
     assert sample_report_path.exists()
 
     print("\n[STEP 2] upload naar Gemini")
