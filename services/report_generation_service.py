@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from schemas import FinalReport, ScenarioAdvice, WoningModel
+from services.config_service import get_value_impact
 
 DEFAULT_GAS_PRICE_EUR_PER_M3 = 1.45
 DEFAULT_ELECTRICITY_PRICE_EUR_PER_KWH = 0.32
@@ -41,6 +42,21 @@ def _calculate_monthly_saving_eur(
     yearly_expected_cost = (float(expected_gas) * gas_price) + (float(expected_electricity) * electricity_price)
     monthly_saving = max((yearly_current_cost - yearly_expected_cost) / 12.0, 0.0)
     return round(monthly_saving, 2)
+
+
+def _calculate_property_value_gain_pct(current_label: str, new_label: str) -> float:
+    config = get_value_impact()
+    multipliers = config.get("label_multipliers", {})
+
+    current_multiplier = multipliers.get(str(current_label).upper())
+    new_multiplier = multipliers.get(str(new_label).upper())
+    if current_multiplier in (None, 0):
+        return 0.0
+    if new_multiplier is None:
+        return 0.0
+
+    pct = ((float(new_multiplier) / float(current_multiplier)) - 1.0) * 100.0
+    return round(max(pct, 0.0), 2)
 
 
 def build_final_report(
@@ -93,6 +109,10 @@ def build_final_report(
         new_ep2_kwh_m2=scenario_advice.expected_ep2_kwh_m2,
         monthly_savings_eur=monthly_savings_eur,
         expected_property_value_gain_eur=scenario_advice.expected_property_value_gain_eur,
+        expected_property_value_gain_pct=_calculate_property_value_gain_pct(
+            current_label=current_label,
+            new_label=scenario_advice.expected_label,
+        ),
         motivation=scenario_advice.motivation,
         assumptions=assumptions,
         uncertainties=list(scenario_advice.uncertainties or []),

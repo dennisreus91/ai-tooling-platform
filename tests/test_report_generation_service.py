@@ -34,6 +34,7 @@ def test_build_final_report_uses_deterministic_usage_based_monthly_saving(monkey
     report = build_final_report("D", 280.0, woningmodel, advice)
 
     assert report.monthly_savings_eur == 70.83
+    assert report.expected_property_value_gain_pct == 4.08
 
 
 def test_build_final_report_falls_back_to_scenario_monthly_saving_when_usage_incomplete():
@@ -49,3 +50,4 @@ def test_build_final_report_falls_back_to_scenario_monthly_saving_when_usage_inc
     report = build_final_report("D", 280.0, woningmodel, advice)
 
     assert report.monthly_savings_eur == 75.0
+    assert report.expected_property_value_gain_pct == 4.08

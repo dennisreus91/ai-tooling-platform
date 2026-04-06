@@ -452,6 +452,7 @@ class FinalReport(BaseModel):
     new_ep2_kwh_m2: float = Field()
     monthly_savings_eur: float = Field(ge=0.0)
     expected_property_value_gain_eur: float = Field(ge=0.0)
+    expected_property_value_gain_pct: float = Field(ge=0.0)
     motivation: str = Field(..., min_length=1)
     assumptions: List[str] = Field(default_factory=list)
     uncertainties: List[str] = Field(default_factory=list)
