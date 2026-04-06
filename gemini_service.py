@@ -494,6 +494,8 @@ def _normalize_scenario_advice_payload(raw: dict[str, Any], measure_overview: Me
         "logical_order",
         "total_investment_eur",
         "monthly_savings_eur",
+        "expected_gasverbruik_m3",
+        "expected_elektriciteitsverbruik_kwh",
         "expected_property_value_gain_eur",
         "motivation",
         "assumptions",
@@ -647,8 +649,17 @@ def _normalize_scenario_advice_payload(raw: dict[str, Any], measure_overview: Me
         uncertainties.extend(fallback_uncertainties)
         normalized["uncertainties"] = uncertainties
 
-    for key in ("total_investment_eur", "monthly_savings_eur", "expected_property_value_gain_eur"):
+    for key in (
+        "total_investment_eur",
+        "monthly_savings_eur",
+        "expected_property_value_gain_eur",
+        "expected_gasverbruik_m3",
+        "expected_elektriciteitsverbruik_kwh",
+    ):
         value = normalized.get(key)
+        if key in {"expected_gasverbruik_m3", "expected_elektriciteitsverbruik_kwh"}:
+            normalized[key] = _safe_float(value)
+            continue
         if value is None:
             normalized[key] = 0.0
 
