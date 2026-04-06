@@ -5,6 +5,8 @@ import mimetypes
 import os
 import re
 import tempfile
+import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,8 @@ from services.config_service import get_measures_library
 from services.extraction_service import extract_woningmodel_from_payload
 
 DEFAULT_TIMEOUT_SECONDS = 60
+MAX_EPA_XML_FILE_SIZE_BYTES = 15 * 1024 * 1024
+MAX_EPA_XML_CANDIDATES = 20
 MEASURE_LIBRARY_FIELDS = (
     "id",
     "canonical_name",
@@ -75,6 +79,80 @@ def _guess_mime_type(file_path: str) -> str | None:
     return mime_type
 
 
+def _is_safe_zip_member(filename: str) -> bool:
+    path = Path(filename)
+    if path.is_absolute():
+        return False
+    return ".." not in path.parts
+
+
+def _looks_like_well_formed_xml(content: bytes) -> bool:
+    try:
+        ET.fromstring(content)
+        return True
+    except ET.ParseError:
+        return False
+
+
+def _extract_xml_from_epa(local_path: str) -> str:
+    try:
+        archive = zipfile.ZipFile(local_path)
+    except zipfile.BadZipFile as exc:
+        raise ValueError("epa_zip_invalid: .epa bestand is geen geldig ZIP-archief.") from exc
+
+    with archive:
+        xml_candidates: list[zipfile.ZipInfo] = []
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            if not _is_safe_zip_member(info.filename):
+                continue
+            if not info.filename.lower().endswith(".xml"):
+                continue
+            xml_candidates.append(info)
+
+        if not xml_candidates:
+            raise ValueError("epa_xml_missing: geen XML-bestand gevonden in .epa archief.")
+
+        ranked_candidates = sorted(
+            xml_candidates,
+            key=lambda item: (-int(item.file_size), item.filename.lower()),
+        )[:MAX_EPA_XML_CANDIDATES]
+
+        for candidate in ranked_candidates:
+            if candidate.file_size > MAX_EPA_XML_FILE_SIZE_BYTES:
+                continue
+            try:
+                content = archive.read(candidate)
+            except Exception:
+                continue
+            if not content.strip():
+                continue
+            if not _looks_like_well_formed_xml(content):
+                continue
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as temp_xml:
+                temp_xml.write(content)
+                return temp_xml.name
+
+    raise ValueError("epa_xml_invalid: geen valide XML-bestand gevonden in .epa archief.")
+
+
+def _prepare_file_for_upload(local_path: str) -> tuple[str, str | None, list[str]]:
+    cleanup_paths: list[str] = []
+    suffix = Path(local_path).suffix.lower()
+
+    if suffix == ".epa":
+        extracted_xml_path = _extract_xml_from_epa(local_path)
+        cleanup_paths.append(extracted_xml_path)
+        return extracted_xml_path, "text/xml", cleanup_paths
+
+    if suffix == ".xml":
+        return local_path, "text/xml", cleanup_paths
+
+    return local_path, _guess_mime_type(local_path), cleanup_paths
+
+
 def download_file_to_temp(file_url: str) -> str:
     response = requests.get(file_url, timeout=DEFAULT_TIMEOUT_SECONDS)
     response.raise_for_status()
@@ -87,10 +165,18 @@ def download_file_to_temp(file_url: str) -> str:
 
 def upload_case_file(local_path: str) -> Any:
     client = _get_gemini_client()
-    mime_type = _guess_mime_type(local_path)
-    if mime_type:
-        return client.files.upload(file=local_path, config={"mime_type": mime_type})
-    return client.files.upload(file=local_path)
+    prepared_path, mime_type, cleanup_paths = _prepare_file_for_upload(local_path)
+
+    try:
+        if mime_type:
+            return client.files.upload(file=prepared_path, config={"mime_type": mime_type})
+        return client.files.upload(file=prepared_path)
+    finally:
+        for path in cleanup_paths:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except Exception:
+                continue
 
 
 def _parse_llm_json(raw_text: str, context: str) -> Any:

@@ -11,9 +11,20 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
-LIVE_TEST_FILES = (
-    PROJECT_ROOT / "tests" / "fixtures" / "sample_report.pdf",
-)
+def _resolve_sample_report_fixture() -> Path:
+    fixtures_dir = PROJECT_ROOT / "tests" / "fixtures"
+    candidates = (
+        fixtures_dir / "sample_report.epa",
+        fixtures_dir / "sample_report.xml",
+        fixtures_dir / "sample_report.pdf",
+    )
+    for path in candidates:
+        if path.exists():
+            return path
+    return candidates[0]
+
+
+LIVE_TEST_FILES = (_resolve_sample_report_fixture(),)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -87,7 +98,7 @@ def project_root() -> Path:
 
 @pytest.fixture(scope="session")
 def sample_report_path() -> Path:
-    path = PROJECT_ROOT / "tests" / "fixtures" / "sample_report.pdf"
+    path = _resolve_sample_report_fixture()
     if not path.exists():
         pytest.fail(f"Expected fixture file does not exist: {path}")
     return path
