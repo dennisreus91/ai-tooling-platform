@@ -47,6 +47,7 @@ def test_final_report_required_fields():
         new_ep2_kwh_m2=180.0,
         monthly_savings_eur=80.0,
         expected_property_value_gain_eur=7000.0,
+        expected_property_value_gain_pct=4.08,
         motivation="Goedkoopste haalbare route.",
         assumptions=[],
         uncertainties=[],
