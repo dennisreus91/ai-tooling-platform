@@ -36,8 +36,18 @@ Respecteer Trias Energetica in scenario-advies:
 """
 
 
-def build_extract_report_prompt(woningmodel_schema: dict[str, Any]) -> str:
+def build_extract_report_prompt(
+    woningmodel_schema: dict[str, Any],
+    extraction_context: dict[str, Any] | None = None,
+) -> str:
     schema_json = json.dumps(woningmodel_schema, ensure_ascii=False, indent=2)
+    context_block = ""
+    if extraction_context:
+        context_json = json.dumps(extraction_context, ensure_ascii=False, indent=2)
+        context_block = (
+            "\nAanvullende extractiecontext (gebruik als bron, maar blijf schema-first):\n"
+            f"{context_json}\n"
+        )
     return (
         f"{SYSTEM_INSTRUCTION_BASELINE.strip()}\n\n"
         "Doel: map het aangeleverde Vabi-rapport direct naar exact één WoningModel JSON.\n"
@@ -54,7 +64,10 @@ def build_extract_report_prompt(woningmodel_schema: dict[str, Any]) -> str:
         "- Zet aannames alleen in extractie_meta.assumptions\n"
         "- Zet onzekerheden alleen in extractie_meta.uncertainties\n"
         "- Zet missende velden in extractie_meta.missing_fields\n"
+        "- Bij EPA/project XML mogen brontermen afwijken van WoningModel-termen: map semantisch op basis van betekenis, eenheid en context\n"
+        "- Als één bronterm meerdere WoningModel-velden kan betekenen: kies de best onderbouwde match en noteer alternatieven in extractie_meta.uncertainties\n"
         "- Geef uitsluitend JSON van het WoningModel terug\n\n"
+        f"{context_block}"
         f"{METHODOLOGY_SOURCE_GUIDANCE.strip()}"
     )
 

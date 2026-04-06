@@ -1,12 +1,12 @@
 import os
 from pathlib import Path
 from typing import Any
-import tempfile
 
 from flask import Flask, abort, request, send_file
 from pydantic import ValidationError
 
 from gemini_service import (
+    build_extraction_context,
     download_file_to_temp,
     extract_woningmodel_data,
     upload_case_file,
@@ -104,13 +104,16 @@ def create_app() -> Flask:
             # 1. Download bestand
             local_path = download_file_to_temp(str(parsed.file_url))
 
-            # 2. Upload naar Gemini
+            # 2. Extra extractiecontext opbouwen (EPA/project XML)
+            extraction_context = build_extraction_context(local_path)
+
+            # 3. Upload naar Gemini
             uploaded_file = upload_case_file(local_path)
 
-            # 3. Extractie naar WoningModel
-            woningmodel = extract_woningmodel_data(uploaded_file)
+            # 4. Extractie naar WoningModel
+            woningmodel = extract_woningmodel_data(uploaded_file, extraction_context)
 
-            # 4. Volledige POC-flow
+            # 5. Volledige POC-flow
             result = run_poc_flow(constraints, woningmodel)
 
         except ValueError as exc:
