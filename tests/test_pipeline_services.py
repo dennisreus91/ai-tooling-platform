@@ -10,6 +10,7 @@ def _sample_model(ep2: float = 280, label: str = "D") -> WoningModel:
     return WoningModel.model_validate(
         {
             "prestatie": {"current_ep2_kwh_m2": ep2, "current_label": label},
+            "maatwerkadvies": {"gasverbruik_m3": 1200.0, "elektriciteitsverbruik_kwh": 2600.0},
             "woning": {"type": "tussenwoning", "gebruiksoppervlakte_m2": 110, "bouwjaar": 1985},
             "bouwdelen": {
                 "dak": {"rc": 2.0},
@@ -51,6 +52,8 @@ def test_run_poc_flow_end_to_end_with_gemini_scenario_advice(mock_gap, mock_advi
         logical_order=["dakisolatie", "zonnepanelen_pv"],
         total_investment_eur=12000.0,
         monthly_savings_eur=95.0,
+        expected_gasverbruik_m3=900.0,
+        expected_elektriciteitsverbruik_kwh=2200.0,
         expected_property_value_gain_eur=7000.0,
         motivation="Beste balans richting doellabel en Trias.",
         assumptions=["Indicatieve POC-doorrekening."],
@@ -62,6 +65,7 @@ def test_run_poc_flow_end_to_end_with_gemini_scenario_advice(mock_gap, mock_advi
 
     assert result.final_report.current_label == "D"
     assert result.final_report.new_label == "B"
+    assert result.final_report.monthly_savings_eur == 46.92
     assert result.scenario_advice.scenario_id == "GEMINI_GEBALANCEERD"
     assert len(result.measure_overview.combined) >= 1
 

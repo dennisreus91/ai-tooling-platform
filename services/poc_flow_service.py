@@ -62,6 +62,7 @@ def run_poc_flow(constraints: Constraints, woningmodel: WoningModel) -> PocFlowR
     final_report = build_final_report(
         current_label=current_label,
         current_ep2=current_ep2,
+        woningmodel=model,
         scenario_advice=scenario_advice,
     )
 

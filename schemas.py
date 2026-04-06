@@ -428,6 +428,8 @@ class ScenarioAdvice(BaseModel):
     logical_order: List[str] = Field(default_factory=list)
     total_investment_eur: float = Field(ge=0.0)
     monthly_savings_eur: float = Field(ge=0.0)
+    expected_gasverbruik_m3: Optional[float] = None
+    expected_elektriciteitsverbruik_kwh: Optional[float] = None
     expected_property_value_gain_eur: float = Field(ge=0.0)
     motivation: str
     assumptions: List[str] = Field(default_factory=list)
