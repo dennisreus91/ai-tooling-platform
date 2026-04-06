@@ -30,6 +30,15 @@ def test_extract_prompt_contains_schema_and_extractie_meta_rules():
     assert "null" in prompt
 
 
+def test_extract_prompt_includes_extraction_context_when_provided():
+    prompt = build_extract_report_prompt(
+        get_woning_schema(),
+        {"source_type": "epa_project_xml", "project_xml_candidates": [{"xml_path": "project/bouwjaar", "value": "1995"}]},
+    ).lower()
+    assert "epa_project_xml" in prompt
+    assert "project/bouwjaar" in prompt
+
+
 def test_scenario_advice_prompt_contains_trias_and_output_contract():
     prompt = build_scenario_advice_prompt().lower()
     assert "scenarioadvice" in prompt

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from gemini_service import _extract_xml_from_epa, _prepare_file_for_upload
+from gemini_service import _extract_xml_from_epa, _prepare_file_for_upload, build_extraction_context
 
 
 def _write_zip(path: Path, members: dict[str, bytes]) -> None:
@@ -53,3 +53,43 @@ def test_prepare_file_for_upload_epa_returns_xml_path_and_mime(tmp_path: Path):
 
     for path in cleanup_paths:
         Path(path).unlink(missing_ok=True)
+
+
+def test_extract_xml_from_epa_prefers_project_xml_name(tmp_path: Path):
+    epa_path = tmp_path / "sample.epa"
+    _write_zip(
+        epa_path,
+        {
+            "woning/large_data.xml": b"<root><woningtype>tussenwoning</woningtype><bouwjaar>1980</bouwjaar></root>",
+            "project.xml": b"<project><gebouwtype>hoekwoning</gebouwtype></project>",
+        },
+    )
+
+    extracted_path = _extract_xml_from_epa(str(epa_path))
+    extracted_content = Path(extracted_path).read_text(encoding="utf-8")
+
+    assert "<gebouwtype>hoekwoning</gebouwtype>" in extracted_content
+
+    Path(extracted_path).unlink(missing_ok=True)
+
+
+def test_build_extraction_context_epa_adds_project_mapping_candidates(tmp_path: Path):
+    epa_path = tmp_path / "sample.epa"
+    _write_zip(
+        epa_path,
+        {
+            "project.xml": (
+                b"<project>"
+                b"<objectgegevens><bouwjaar>1995</bouwjaar><woningtype>vrijstaand</woningtype></objectgegevens>"
+                b"</project>"
+            ),
+        },
+    )
+
+    context = build_extraction_context(str(epa_path))
+
+    assert context["source_type"] == "epa_project_xml"
+    assert context["project_xml_candidates"]
+    assert any(
+        "woning.bouwjaar" in row["candidate_target_fields"] for row in context["project_xml_candidates"]
+    )

@@ -21,13 +21,21 @@ from prompts import (
     build_scenario_advice_prompt,
 )
 from schemas import Constraints, MeasureOverview, MeasureStatus, ScenarioAdvice, WoningModel
-from services.config_service import get_label_boundaries, get_scenario_templates, get_trias_structure, get_woning_schema
+from services.config_service import (
+    get_label_boundaries,
+    get_scenario_templates,
+    get_trias_structure,
+    get_vabi_mapping,
+    get_woning_schema,
+)
 from services.config_service import get_measures_library
 from services.extraction_service import extract_woningmodel_from_payload
 
 DEFAULT_TIMEOUT_SECONDS = 60
 MAX_EPA_XML_FILE_SIZE_BYTES = 15 * 1024 * 1024
 MAX_EPA_XML_CANDIDATES = 20
+MAX_EPA_XML_CONTEXT_ROWS = 120
+PREFERRED_EPA_XML_BASENAMES = {"project.xml", "project"}
 MEASURE_LIBRARY_FIELDS = (
     "id",
     "canonical_name",
@@ -116,7 +124,11 @@ def _extract_xml_from_epa(local_path: str) -> str:
 
         ranked_candidates = sorted(
             xml_candidates,
-            key=lambda item: (-int(item.file_size), item.filename.lower()),
+            key=lambda item: (
+                -int(Path(item.filename).name.lower() in PREFERRED_EPA_XML_BASENAMES),
+                -int(item.file_size),
+                item.filename.lower(),
+            ),
         )[:MAX_EPA_XML_CANDIDATES]
 
         for candidate in ranked_candidates:
@@ -136,6 +148,92 @@ def _extract_xml_from_epa(local_path: str) -> str:
                 return temp_xml.name
 
     raise ValueError("epa_xml_invalid: geen valide XML-bestand gevonden in .epa archief.")
+
+
+def _normalize_term(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def _flatten_xml_leaf_values(xml_path: str) -> list[dict[str, str]]:
+    root = ET.parse(xml_path).getroot()
+    rows: list[dict[str, str]] = []
+
+    def walk(node: ET.Element, current_path: str) -> None:
+        new_path = f"{current_path}/{node.tag.split('}')[-1]}" if current_path else node.tag.split("}")[-1]
+        children = list(node)
+        if not children:
+            value = (node.text or "").strip()
+            if value:
+                rows.append(
+                    {
+                        "xml_path": new_path,
+                        "leaf_tag": node.tag.split("}")[-1],
+                        "value": value,
+                    }
+                )
+            return
+        for child in children:
+            if len(rows) >= MAX_EPA_XML_CONTEXT_ROWS:
+                return
+            walk(child, new_path)
+
+    walk(root, "")
+    return rows[:MAX_EPA_XML_CONTEXT_ROWS]
+
+
+def _build_epa_project_context(xml_path: str) -> dict[str, Any]:
+    leaf_rows = _flatten_xml_leaf_values(xml_path)
+    if not leaf_rows:
+        return {}
+
+    mapping = get_vabi_mapping()
+    rules = mapping.get("rules", [])
+
+    mapping_candidates: list[dict[str, Any]] = []
+    for row in leaf_rows:
+        normalized_leaf = _normalize_term(row["leaf_tag"])
+        normalized_path = _normalize_term(row["xml_path"])
+        matched_targets: list[str] = []
+        for rule in rules:
+            target_field = str(rule.get("target_field", "")).strip()
+            if not target_field:
+                continue
+            possible_labels = [str(label) for label in rule.get("possible_labels", []) if label]
+            for label in possible_labels:
+                normalized_label = _normalize_term(label)
+                if not normalized_label:
+                    continue
+                if normalized_label in normalized_leaf or normalized_label in normalized_path:
+                    matched_targets.append(target_field)
+                    break
+        mapping_candidates.append(
+            {
+                "xml_path": row["xml_path"],
+                "value": row["value"],
+                "candidate_target_fields": sorted(set(matched_targets)),
+            }
+        )
+
+    return {
+        "source_type": "epa_project_xml",
+        "mapping_strategy": "semantic_label_matching_via_vabi_mapping",
+        "project_xml_candidates": mapping_candidates,
+    }
+
+
+def build_extraction_context(local_path: str) -> dict[str, Any]:
+    suffix = Path(local_path).suffix.lower()
+    if suffix != ".epa":
+        return {}
+
+    project_xml_path = _extract_xml_from_epa(local_path)
+    try:
+        return _build_epa_project_context(project_xml_path)
+    finally:
+        try:
+            Path(project_xml_path).unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 def _prepare_file_for_upload(local_path: str) -> tuple[str, str | None, list[str]]:
@@ -221,10 +319,10 @@ def _generate_json(*, model: str, contents: list[Any], context_name: str, tools:
     return _parse_llm_json(raw_text, context_name)
 
 
-def extract_woningmodel_data(uploaded_file: Any) -> WoningModel:
+def extract_woningmodel_data(uploaded_file: Any, extraction_context: dict[str, Any] | None = None) -> WoningModel:
     payload = _generate_json(
         model=_get_extract_model(),
-        contents=[uploaded_file, build_extract_report_prompt(get_woning_schema())],
+        contents=[uploaded_file, build_extract_report_prompt(get_woning_schema(), extraction_context)],
         context_name="Gemini woningmodel extraction",
     )
     if not isinstance(payload, dict):
