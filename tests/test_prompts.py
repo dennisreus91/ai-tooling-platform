@@ -5,7 +5,7 @@ from prompts import (
     build_extract_report_prompt,
     build_scenario_advice_prompt,
 )
-from services.config_service import get_woning_schema
+from services.config_service import get_label_boundaries, get_woning_schema
 
 
 def test_system_instruction_baseline_enforces_json_only():
@@ -24,6 +24,11 @@ def test_extract_prompt_contains_schema_and_extractie_meta_rules():
     prompt = build_extract_report_prompt(get_woning_schema()).lower()
     assert "woningmodel" in prompt
     assert "schema" in prompt
+    assert "probeer alle woningmodel-velden te vullen" in prompt
+    assert "belangrijke mapping-focus" in prompt
+    assert "prioriteit 1: bronrapport" in prompt
+    assert "ep2 is de huidige energieprestatie-indicator" in prompt
+    assert "als prestatie.current_label ontbreekt maar ep2 wel beschikbaar is" in prompt
     assert "assumptions" in prompt
     assert "uncertainties" in prompt
     assert "missing_fields" in prompt
@@ -37,6 +42,13 @@ def test_extract_prompt_includes_extraction_context_when_provided():
     ).lower()
     assert "epa_project_xml" in prompt
     assert "project/bouwjaar" in prompt
+
+
+def test_extract_prompt_includes_label_boundaries_when_provided():
+    prompt = build_extract_report_prompt(get_woning_schema(), label_boundaries=get_label_boundaries())
+    assert "Deterministische labelmapping" in prompt
+    assert "\"label\": \"B\"" in prompt
+    assert "\"ep2_min_inclusive\": 160.0" in prompt
 
 
 def test_scenario_advice_prompt_contains_trias_and_output_contract():
