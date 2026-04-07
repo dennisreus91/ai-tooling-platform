@@ -39,8 +39,24 @@ Respecteer Trias Energetica in scenario-advies:
 def build_extract_report_prompt(
     woningmodel_schema: dict[str, Any],
     extraction_context: dict[str, Any] | None = None,
+    label_boundaries: dict[str, Any] | None = None,
 ) -> str:
     schema_json = json.dumps(woningmodel_schema, ensure_ascii=False, indent=2)
+    label_boundary_block = ""
+    if label_boundaries:
+        compact_boundaries = []
+        for boundary in label_boundaries.get("boundaries", []):
+            compact_boundaries.append(
+                {
+                    "label": boundary.get("label"),
+                    "ep2_min_inclusive": boundary.get("ep2_min_inclusive"),
+                    "ep2_max_exclusive": boundary.get("ep2_max_exclusive"),
+                }
+            )
+        label_boundary_block = (
+            "\nDeterministische labelmapping (gebruik exact deze grenzen uit labelgrenzen.json):\n"
+            f"{json.dumps(compact_boundaries, ensure_ascii=False, indent=2)}\n"
+        )
     context_block = ""
     if extraction_context:
         context_json = json.dumps(extraction_context, ensure_ascii=False, indent=2)
@@ -51,10 +67,26 @@ def build_extract_report_prompt(
     return (
         f"{SYSTEM_INSTRUCTION_BASELINE.strip()}\n\n"
         "Doel: map het aangeleverde Vabi-rapport direct naar exact één WoningModel JSON.\n"
+        "Kernopdracht: probeer ALLE WoningModel-velden te vullen met waarden uit het geüploade rapport.\n"
+        "Als een waarde niet aanwezig of niet afleidbaar is in het rapport: gebruik null en registreer dit traceerbaar in extractie_meta.\n"
+        "EP2 is de huidige energieprestatie-indicator en hoort in prestatie.current_ep2_kwh_m2.\n"
         "Gebruik dit schema als leidend contract (veldnamen exact overnemen):\n"
         f"{schema_json}\n\n"
+        f"{label_boundary_block}"
+        "Belangrijke mapping-focus (vul vanuit rapport zodra beschikbaar):\n"
+        "- woning_identificatie.*\n"
+        "- geometrie.* (incl. bouwdelen, oppervlaktes, rc/u-waardes)\n"
+        "- installaties.*\n"
+        "- verbruik.*\n"
+        "- maatregelen[] + maatregel_waarden[]\n"
+        "- samenvatting_huidige_maatregelen.*\n"
+        "- extractie_meta.* (assumptions, uncertainties, missing_fields)\n\n"
         "Regels:\n"
         "- Geen backend-hermapping verwachten: vul direct het juiste model in\n"
+        "- Prioriteit 1: bronrapport; prioriteit 2: extraction_context; gebruik geen ononderbouwde waarden\n"
+        "- Vul elk veld alleen met expliciet bronbewijs of herleidbare context uit het rapport\n"
+        "- Als prestatie.current_label ontbreekt maar EP2 wel beschikbaar is: leid current_label deterministisch af met bovenstaande labelgrenzen\n"
+        "- Als zowel current_label als EP2 ontbreken: laat beide null en zet dit in extractie_meta.missing_fields + uncertainties\n"
         "- Gebruik null bij ontbrekende waarden\n"
         "- Vul maatregelen in onder maatregelen[] en behoud maatregel_naam_origineel exact zoals in rapport\n"
         "- Leg bij maatregelen waar mogelijk maatregel_waarden vast met parameter_naam, waarde, eenheid en waarde_type\n"

@@ -322,7 +322,14 @@ def _generate_json(*, model: str, contents: list[Any], context_name: str, tools:
 def extract_woningmodel_data(uploaded_file: Any, extraction_context: dict[str, Any] | None = None) -> WoningModel:
     payload = _generate_json(
         model=_get_extract_model(),
-        contents=[uploaded_file, build_extract_report_prompt(get_woning_schema(), extraction_context)],
+        contents=[
+            uploaded_file,
+            build_extract_report_prompt(
+                get_woning_schema(),
+                extraction_context,
+                get_label_boundaries(),
+            ),
+        ],
         context_name="Gemini woningmodel extraction",
     )
     if not isinstance(payload, dict):
