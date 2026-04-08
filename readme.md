@@ -28,7 +28,6 @@ De tool combineert:
 
 De flow-orchestratie staat in `services/poc_flow_service.py` en wordt aangeroepen vanuit `app.py`.
 
----
 
 ## API-endpoints
 
